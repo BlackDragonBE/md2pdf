@@ -1,0 +1,40 @@
+{
+	"version": 1,
+	"name": "Slate Draft",
+	"page": { "size": "A4", "orientation": "portrait", "margins": [56, 64, 56, 64] },
+	"fonts": {
+		"body": { "source": { "kind": "builtin", "id": "work-sans" }, "fallback": "inter" },
+		"heading": { "source": { "kind": "builtin", "id": "work-sans" }, "fallback": "inter" },
+		"mono": { "source": { "kind": "builtin", "id": "jetbrains-mono" }, "fallback": "jetbrains-mono" }
+	},
+	"background": { "color": "#f4f5f7" },
+	"watermark": {
+		"enabled": true,
+		"text": "DRAFT",
+		"angle": -38,
+		"opacity": 0.07,
+		"size": 110,
+		"color": "#1f2a3a",
+		"font": "heading"
+	},
+	"header": {
+		"enabled": true,
+		"template": "{{title}} — {{date}}",
+		"alignment": "left",
+		"size": 8,
+		"color": "#7c8798",
+		"offset": 30,
+		"rule": { "enabled": true, "color": "#d5dae2", "width": 0.5 }
+	},
+	"footer": { "enabled": true, "template": "page {{page}} of {{pages}}", "color": "#7c8798" },
+	"code": { "background": "#e8eaee", "borderColor": "#d0d5dd", "syntaxHighlight": true },
+	"table": { "headerFill": "#e2e6ec", "zebra": "#ecEEF2", "borderColor": "#d0d5dd" },
+	"blockquote": { "barColor": "#9aa6b8", "barWidth": 4, "background": "#eaedf2" },
+	"link": { "color": "#2f6fd0" },
+	"elements": {
+		"h1": { "size": 25, "color": "#16202e", "margin": [0, 18, 0, 8] },
+		"h2": { "size": 19, "color": "#16202e", "margin": [0, 16, 0, 7] },
+		"h3": { "size": 15, "color": "#243347", "margin": [0, 13, 0, 6] },
+		"paragraph": { "size": 10.5, "color": "#243347", "margin": [0, 0, 0, 8] }
+	}
+}

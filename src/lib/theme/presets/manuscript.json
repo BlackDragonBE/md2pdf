@@ -1,0 +1,33 @@
+{
+	"version": 1,
+	"name": "Manuscript",
+	"page": { "size": "A5", "orientation": "portrait", "margins": [48, 56, 48, 60] },
+	"fonts": {
+		"body": { "source": { "kind": "builtin", "id": "eb-garamond" }, "fallback": "inter" },
+		"heading": { "source": { "kind": "builtin", "id": "eb-garamond" }, "fallback": "inter" },
+		"mono": { "source": { "kind": "builtin", "id": "ibm-plex-mono" }, "fallback": "jetbrains-mono" }
+	},
+	"background": { "color": "#fdfcf8" },
+	"footer": {
+		"enabled": true,
+		"template": "{{page}}",
+		"alignment": "center",
+		"size": 9,
+		"color": "#8b8377",
+		"offset": 30,
+		"showOnFirstContentPage": false
+	},
+	"cover": { "enabled": true, "background": { "color": "#fdfcf8" } },
+	"blockquote": { "barColor": "#d8cfbe", "barWidth": 2, "indent": 14 },
+	"hr": { "color": "#ded5c4", "width": 0.6, "margin": [0, 14, 0, 14] },
+	"list": { "bulletChars": ["·", "–", "▪"] },
+	"link": { "color": "#7a5c2e", "underline": true },
+	"table": { "headerFill": "#f2ede2", "borderColor": "#ded5c4" },
+	"elements": {
+		"h1": { "size": 22, "bold": false, "color": "#2b2419", "alignment": "center", "margin": [0, 24, 0, 14] },
+		"h2": { "size": 15, "bold": false, "italics": true, "color": "#2b2419", "margin": [0, 18, 0, 8] },
+		"h3": { "size": 12.5, "bold": false, "italics": true, "color": "#3a3226", "margin": [0, 14, 0, 6] },
+		"paragraph": { "size": 10.5, "color": "#2b2419", "alignment": "justify", "lineHeight": 1.5, "margin": [0, 0, 0, 7] },
+		"blockquote": { "color": "#6b6252" }
+	}
+}

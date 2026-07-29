@@ -1,0 +1,38 @@
+{
+	"version": 1,
+	"name": "Wide Deck",
+	"page": { "size": "A4", "orientation": "landscape", "margins": [64, 56, 64, 52] },
+	"fonts": {
+		"body": { "source": { "kind": "builtin", "id": "lato" }, "fallback": "inter" },
+		"heading": { "source": { "kind": "builtin", "id": "playfair-display" }, "fallback": "inter" },
+		"mono": { "source": { "kind": "builtin", "id": "jetbrains-mono" }, "fallback": "jetbrains-mono" }
+	},
+	"background": { "color": "#111418" },
+	"cover": {
+		"enabled": true,
+		"background": { "color": "#111418" },
+		"blocks": [
+			{ "field": "title", "literal": "", "y": "40%", "alignment": "left", "font": "heading", "size": 44, "bold": true, "color": "#f5f6f8" },
+			{ "field": "subtitle", "literal": "", "y": "52%", "alignment": "left", "font": "body", "size": 16, "bold": false, "color": "#9aa3b0" },
+			{ "field": "author", "literal": "", "y": "80%", "alignment": "left", "font": "body", "size": 11, "bold": false, "color": "#6f7784" }
+		]
+	},
+	"footer": { "enabled": true, "template": "{{page}}", "alignment": "right", "color": "#5d6673", "offset": 26 },
+	"code": { "background": "#1a1f26", "borderColor": "#2a313b", "syntaxHighlight": false },
+	"table": { "headerFill": "#1e242c", "headerColor": "#f5f6f8", "borderColor": "#2a313b", "zebra": "#161b21" },
+	"blockquote": { "barColor": "#3f4956", "barWidth": 4 },
+	"hr": { "color": "#2a313b", "width": 0.75, "margin": [0, 12, 0, 12] },
+	"link": { "color": "#7aa2f7", "underline": false },
+	"elements": {
+		"h1": { "size": 30, "color": "#f5f6f8", "margin": [0, 10, 0, 12], "breakBefore": true },
+		"h2": { "size": 21, "color": "#e3e7ec", "margin": [0, 16, 0, 8] },
+		"h3": { "size": 16, "color": "#c9d1da", "margin": [0, 12, 0, 6] },
+		"paragraph": { "size": 12, "color": "#c9d1da", "lineHeight": 1.45, "margin": [0, 0, 0, 10] },
+		"listItem": { "size": 12, "color": "#c9d1da" },
+		"blockquote": { "size": 12, "color": "#9aa3b0" },
+		"codeBlock": { "size": 10, "color": "#c9d1da" },
+		"inlineCode": { "size": 11, "color": "#e0af68" },
+		"tableCell": { "size": 10.5, "color": "#c9d1da" },
+		"tableHeader": { "size": 10.5, "color": "#f5f6f8" }
+	}
+}

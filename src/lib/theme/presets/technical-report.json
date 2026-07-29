@@ -1,0 +1,46 @@
+{
+	"version": 1,
+	"name": "Technical Report",
+	"page": { "size": "A4", "orientation": "portrait", "margins": [64, 72, 64, 72] },
+	"fonts": {
+		"body": { "source": { "kind": "builtin", "id": "source-sans-3" }, "fallback": "inter" },
+		"heading": { "source": { "kind": "builtin", "id": "source-sans-3" }, "fallback": "inter" },
+		"mono": { "source": { "kind": "builtin", "id": "ibm-plex-mono" }, "fallback": "jetbrains-mono" }
+	},
+	"header": {
+		"enabled": true,
+		"template": "{{title}}",
+		"alignment": "right",
+		"size": 8,
+		"color": "#8a8f98",
+		"offset": 34,
+		"showOnFirstContentPage": false,
+		"rule": { "enabled": true, "color": "#e3e6ea", "width": 0.5 }
+	},
+	"footer": {
+		"enabled": true,
+		"template": "{{author}}   ·   {{page}} / {{pages}}",
+		"alignment": "center",
+		"size": 8,
+		"color": "#8a8f98",
+		"offset": 34,
+		"rule": { "enabled": false, "color": "#e3e6ea", "width": 0.5 }
+	},
+	"cover": { "enabled": true, "excludeFromPageCount": true },
+	"code": {
+		"background": "#f7f8fa",
+		"borderColor": "#dfe3e8",
+		"borderWidth": 0.5,
+		"showLineNumbers": true,
+		"syntaxHighlight": true
+	},
+	"table": { "headerFill": "#eef1f5", "zebra": "#f8f9fb", "borderColor": "#dfe3e8" },
+	"link": { "color": "#1a5fb4", "underline": false },
+	"elements": {
+		"h1": { "size": 24, "color": "#0b1c33", "margin": [0, 20, 0, 9] },
+		"h2": { "size": 18, "color": "#0b1c33", "margin": [0, 16, 0, 7] },
+		"h3": { "size": 14, "color": "#12294a", "margin": [0, 13, 0, 6] },
+		"paragraph": { "size": 10, "alignment": "justify", "lineHeight": 1.42, "margin": [0, 0, 0, 9] },
+		"codeBlock": { "size": 8.5 }
+	}
+}
