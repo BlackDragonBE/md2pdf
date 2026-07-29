@@ -56,14 +56,18 @@ before you touch it:
   so a variable file renders "Bold" as Regular. The build instantiates every axis
   and asserts the `fvar` table is gone.
 - Ten of the twelve have no ballot-box glyphs at all, so task-list checkboxes
-  would render as blank squares. The build grafts the missing symbols in from
-  Source Sans 3, scaled to the host family's units-per-em. Both sides are
-  OFL-1.1; every licence is committed beside its family and listed at
-  `/licenses`.
+  would render as blank squares — and none of the proportional families have box
+  drawing, so `tree`-style diagrams did too. The build grafts the missing symbols
+  in from Source Sans 3 and JetBrains Mono, scaled to the host family's
+  units-per-em. Both sides are OFL-1.1; every licence is committed beside its
+  family and listed on the About page.
 
 Users can also upload their own TTF/OTF (validated by magic bytes, not
 extension) or pull from Google Fonts (online first, cached for offline use
-afterwards, labelled experimental).
+afterwards, labelled experimental). Google families are requested with `text=`,
+because `css2` otherwise answers with a dozen `@font-face` blocks split by
+`unicode-range` and pdfkit can embed only one file — picking a block rendered
+every Latin character as tofu.
 
 ## Themes
 
