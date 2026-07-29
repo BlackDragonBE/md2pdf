@@ -6,8 +6,15 @@
 		buffer: ArrayBuffer | null;
 		zoom: number;
 		busy: boolean;
+		/**
+		 * Reports the zoom at which the widest page would exactly fill the pane,
+		 * so the toolbar can offer "fit" and pick a sensible starting zoom. At
+		 * 100% an A4 page is 595px wide, which does not fit the default pane —
+		 * the preview would otherwise open horizontally clipped.
+		 */
+		onfit?: (fitZoom: number) => void;
 	}
-	let { buffer, zoom, busy }: Props = $props();
+	let { buffer, zoom, busy, onfit }: Props = $props();
 
 	const GAP = 16;
 
@@ -94,6 +101,8 @@
 		const previous = doc;
 		doc = next;
 		renderError = null;
+		naturalWidth = Math.max(...geometry.map((g) => g.width)) / scale;
+		reportFit();
 		pages = geometry;
 		canvases = rendered;
 		visiblePage = target;
@@ -106,6 +115,24 @@
 			restore(container, anchor, pageTopsFor(geometry));
 		}
 	}
+
+	/** Widest page measured at zoom 1, so the fit ratio is scale-independent. */
+	let naturalWidth = 0;
+
+	function reportFit() {
+		if (!container || naturalWidth <= 0) return;
+		// Leave room for the vertical scrollbar and a little breathing space.
+		const available = container.clientWidth - 24;
+		if (available <= 0) return;
+		onfit?.(available / naturalWidth);
+	}
+
+	$effect(() => {
+		if (typeof ResizeObserver === 'undefined' || !container) return;
+		const observer = new ResizeObserver(() => reportFit());
+		observer.observe(container);
+		return () => observer.disconnect();
+	});
 
 	function pageTopsFor(geometry: PageGeometry[]): number[] {
 		const tops: number[] = [];

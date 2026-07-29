@@ -379,6 +379,35 @@ test.describe('scrolling', () => {
 		expect(leftOffset).toBeGreaterThanOrEqual(0);
 	});
 
+	/** At 100% an A4 page is 595px, wider than the default pane. */
+	test('opens at a zoom where the page fits, with no horizontal scrollbar', async ({ page }) => {
+		// Fitting re-renders the preview without touching generation state, so
+		// poll rather than assuming it has landed by the time the PDF is ready.
+		await expect
+			.poll(async () => {
+				const box = await metrics(page, '.viewport');
+				return box.scrollWidth - box.clientWidth;
+			}, { timeout: 20_000 })
+			.toBeLessThanOrEqual(1);
+
+		const viewport = await metrics(page, '.viewport');
+		const pageWidth = await page.locator('.page').first().evaluate((el) => el.clientWidth);
+		expect(pageWidth).toBeLessThanOrEqual(viewport.clientWidth);
+	});
+
+	test('the Fit button restores a fitting zoom after manual zooming', async ({ page }) => {
+		await page.locator('.zoom input').fill('2');
+		await page.waitForTimeout(2500);
+		let viewport = await metrics(page, '.viewport');
+		expect(viewport.scrollWidth).toBeGreaterThan(viewport.clientWidth);
+
+		await page.getByRole('button', { name: 'Fit' }).click();
+		await page.waitForTimeout(2500);
+
+		viewport = await metrics(page, '.viewport');
+		expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth + 1);
+	});
+
 	test('a page narrower than the pane stays centred without a scrollbar', async ({ page }) => {
 		await setSource(page, '# Small\n\nBody text.');
 		await page.locator('.zoom input').fill('0.4');

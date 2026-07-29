@@ -10,6 +10,10 @@
 	import { slugify } from '$lib/theme/io';
 
 	let zoom = $state(1);
+	/** Zoom at which the page exactly fills the preview pane. */
+	let fitZoom = $state(1);
+	/** Once the reader picks a zoom, stop re-fitting under them. */
+	let zoomIsUsers = false;
 	/** Transient editor notice, e.g. an image paste that was too large. */
 	let notice = $state<string | null>(null);
 	let showMeta = $state(false);
@@ -75,9 +79,26 @@
 		<div class="spacer"></div>
 		<label class="zoom">
 			zoom
-			<input type="range" min="0.4" max="2" step="0.1" bind:value={zoom} />
+			<input
+				type="range"
+				min="0.4"
+				max="2"
+				step="0.05"
+				value={zoom}
+				oninput={(e) => {
+					zoomIsUsers = true;
+					zoom = Number(e.currentTarget.value);
+				}}
+			/>
 			<span>{Math.round(zoom * 100)}%</span>
 		</label>
+		<button
+			onclick={() => {
+				zoomIsUsers = true;
+				zoom = fitZoom;
+			}}
+			title="Fit the page to the preview width">Fit</button
+		>
 		<button onclick={() => (showMeta = !showMeta)} aria-pressed={showMeta}>Metadata</button>
 		<button onclick={() => (showThemePanel = !showThemePanel)} aria-pressed={showThemePanel}>
 			Theme
@@ -124,7 +145,15 @@
 		</section>
 
 		<section class="preview-pane">
-			<Preview buffer={pdfStore.buffer} {zoom} busy={pdfStore.state === 'generating'} />
+			<Preview
+				buffer={pdfStore.buffer}
+				{zoom}
+				busy={pdfStore.state === 'generating'}
+				onfit={(ratio) => {
+					fitZoom = Math.min(2, Math.max(0.4, Math.round(ratio * 20) / 20));
+					if (!zoomIsUsers) zoom = fitZoom;
+				}}
+			/>
 		</section>
 
 		{#if showThemePanel}
