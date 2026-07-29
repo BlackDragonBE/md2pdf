@@ -1,16 +1,4 @@
 {
-  "source-sans-3": {
-    "name": "Source Sans 3",
-    "category": "sans",
-    "license": "OFL-1.1",
-    "url": "https://github.com/google/fonts/tree/main/ofl/sourcesans3",
-    "files": {
-      "normal": "source-sans-3/Regular.ttf",
-      "bold": "source-sans-3/Bold.ttf",
-      "italics": "source-sans-3/Italic.ttf",
-      "bolditalics": "source-sans-3/BoldItalic.ttf"
-    }
-  },
   "inter": {
     "name": "Inter",
     "category": "sans",
@@ -21,6 +9,18 @@
       "bold": "inter/Bold.ttf",
       "italics": "inter/Italic.ttf",
       "bolditalics": "inter/BoldItalic.ttf"
+    }
+  },
+  "source-sans-3": {
+    "name": "Source Sans 3",
+    "category": "sans",
+    "license": "OFL-1.1",
+    "url": "https://github.com/google/fonts/tree/main/ofl/sourcesans3",
+    "files": {
+      "normal": "source-sans-3/Regular.ttf",
+      "bold": "source-sans-3/Bold.ttf",
+      "italics": "source-sans-3/Italic.ttf",
+      "bolditalics": "source-sans-3/BoldItalic.ttf"
     }
   },
   "lato": {

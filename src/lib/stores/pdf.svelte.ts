@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { charsetKey, documentCharset } from '../fonts/charset';
 import { resolveFonts } from '../fonts/resolve';
 import { buildVfs } from '../fonts/register';
 import { EMPTY_META, type DocMeta } from '../markdown/frontmatter';
@@ -73,11 +74,13 @@ class PdfStore {
 		void this.#run(input);
 	}
 
-	async #fontBundle(theme: Theme): Promise<FontBundle> {
-		const key = JSON.stringify(theme.fonts);
+	async #fontBundle(theme: Theme, charset: string): Promise<FontBundle> {
+		// The charset is part of the key: Google fonts are subsetted to the
+		// document's characters, so a new character needs a new file.
+		const key = `${JSON.stringify(theme.fonts)}|${charsetKey(charset)}`;
 		if (this.#fontCache?.key === key) return this.#fontCache.bundle;
 
-		const resolution = await resolveFonts(theme);
+		const resolution = await resolveFonts(theme, charset);
 		const { vfs, fonts } = buildVfs(resolution.fonts);
 		const bundle: FontBundle = {
 			roles: resolution.roles,
@@ -100,7 +103,7 @@ class PdfStore {
 			const { theme, source, metaOverrides } = input;
 			const parsed = parse(source, theme.pagebreak.marker, metaOverrides);
 			const imageResult = await resolveImages(collectImageSources(parsed.tokens));
-			const fontBundle = await this.#fontBundle(theme);
+			const fontBundle = await this.#fontBundle(theme, documentCharset(source));
 
 			if (id !== this.#latestId) return; // superseded while awaiting
 

@@ -17,6 +17,9 @@ import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
  */
 let workerSeq = 0;
 
+/** Long enough for a cold worker start on a slow machine, short enough to notice. */
+const OPEN_TIMEOUT_MS = 20_000;
+
 /**
  * pdf.js generates its `.d.ts` from JSDoc and gets this one wrong: the emitted
  * constructor says `port?: null | undefined`, contradicting the
@@ -62,7 +65,31 @@ export class PreviewDocument {
 		let doc: PDFDocumentProxy;
 		try {
 			const worker = new PDFWorker({ port, name: `md2pdf-preview-${++workerSeq}` });
-			doc = await pdfjs.getDocument({ data: copy, worker }).promise;
+			/*
+			 * Supplying our own port means pdf.js uses `_initializeFromPort`, which
+			 * has none of the timeout and fake-worker fallback it applies to a
+			 * worker it created itself. If the port never completes the handshake,
+			 * `getDocument` simply never settles — the preview sits on "Nothing to
+			 * preview yet" forever with nothing logged and nothing to catch. Both
+			 * guards below exist to turn that into a visible error.
+			 */
+			doc = await Promise.race([
+				pdfjs.getDocument({ data: copy, worker }).promise,
+				new Promise<never>((_, reject) => {
+					port.addEventListener('error', (event) =>
+						reject(new Error(`PDF preview worker failed: ${event.message || 'unknown error'}`))
+					);
+					port.addEventListener('messageerror', () =>
+						reject(new Error('PDF preview worker sent an unreadable message.'))
+					);
+				}),
+				new Promise<never>((_, reject) =>
+					setTimeout(
+						() => reject(new Error('The PDF preview worker did not respond in time.')),
+						OPEN_TIMEOUT_MS
+					)
+				)
+			]);
 		} catch (e) {
 			port.terminate();
 			throw e;

@@ -48,17 +48,27 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "static" / "fonts"
 
 # Latin + Latin Extended-A, general punctuation, currency, trademark, arrows,
-# geometric shapes (list bullets) and ballot boxes (task list glyphs).
+# box drawing (tree diagrams), geometric shapes (list bullets) and ballot boxes
+# (task list glyphs).
 UNICODES = (
     "U+0000-00FF,U+0100-017F,U+2000-206F,U+20A0-20BF,U+2122,"
-    "U+2190-2193,U+25A0-25FF,U+2610,U+2611,U+2713,U+2714"
+    "U+2190-2193,U+2500-257F,U+25A0-25FF,U+2610,U+2611,U+2713,U+2714"
 )
 LAYOUT_FEATURES = ["kern", "liga", "clig"]
 
 # Glyphs the default theme renders directly: list bullets and task checkboxes.
 # Every family must end up with all of them (DESIGN.md §7.2 acceptance check).
-REQUIRED_SYMBOLS = [0x2022, 0x25E6, 0x25AA, 0x2610, 0x2611, 0x2713]
-DONOR_ID = "source-sans-3"
+SYMBOLS = [0x2022, 0x25E6, 0x25AA, 0x2610, 0x2611, 0x2713]
+
+# The light box-drawing set used by `tree`-style directory diagrams, which are
+# extremely common in Markdown. Only the two monospace families ship these
+# upstream; everywhere else they render as blank boxes.
+BOX_DRAWING = [0x2500, 0x2502, 0x250C, 0x2510, 0x2514, 0x2518, 0x251C, 0x2524, 0x252C, 0x2534, 0x253C]
+
+# Which family donates which group. Box drawing comes from a monospace face so
+# the segments share one advance width and joins line up in a run.
+DONORS = [("source-sans-3", SYMBOLS), ("jetbrains-mono", BOX_DRAWING)]
+REQUIRED_SYMBOLS = SYMBOLS + BOX_DRAWING
 
 FACES = [
     ("normal", "Regular", 400, False),
@@ -121,6 +131,18 @@ def make_static(raw: bytes, weight: int) -> TTFont:
 
 
 def subset(font: TTFont, target: Path) -> None:
+    codepoints = parse_unicodes(UNICODES)
+
+    # Box drawing is all-or-nothing. Lato ships the straight segments but not
+    # the junctions, and its own segments are a different advance width from the
+    # donor's — keeping the partial set would leave tree diagrams with lines
+    # that do not join. If the family cannot do the whole set, drop what it has
+    # and let the graft pass supply a consistent one.
+    cmap = font.getBestCmap()
+    if not all(c in cmap for c in BOX_DRAWING):
+        box = set(range(0x2500, 0x2580))
+        codepoints = [c for c in codepoints if c not in box]
+
     options = Options()
     options.layout_features = LAYOUT_FEATURES
     options.name_IDs = ["*"]
@@ -130,7 +152,7 @@ def subset(font: TTFont, target: Path) -> None:
     options.drop_tables += ["DSIG"]
 
     subsetter = Subsetter(options=options)
-    subsetter.populate(unicodes=parse_unicodes(UNICODES))
+    subsetter.populate(unicodes=codepoints)
     subsetter.subset(font)
 
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -138,10 +160,10 @@ def subset(font: TTFont, target: Path) -> None:
     font.save(target)
 
 
-def graft_symbols(target: Path, donor_path: Path) -> list[str]:
-    """Merge any REQUIRED_SYMBOLS the family lacks in from the donor face."""
+def graft_symbols(target: Path, donor_path: Path, wanted: list[int]) -> list[str]:
+    """Merge any of `wanted` the family lacks in from the donor face."""
     font = TTFont(target)
-    missing = [c for c in REQUIRED_SYMBOLS if c not in font.getBestCmap()]
+    missing = [c for c in wanted if c not in font.getBestCmap()]
     if not missing:
         return []
 
@@ -185,10 +207,10 @@ def parse_unicodes(spec: str) -> list[int]:
 def build() -> None:
     manifest: dict[str, dict] = {}
 
-    # The donor family is built first so later families can graft from it.
-    order = [DONOR_ID] + [k for k in FAMILIES if k != DONOR_ID]
-
-    for font_id in order:
+    # Build every family first, then graft. The donors need glyphs from each
+    # other — Source Sans 3 has no box drawing, JetBrains Mono no ballot boxes —
+    # so any single build order would need a donor that does not exist yet.
+    for font_id in FAMILIES:
         name, category, licence, directory, upright, italic = FAMILIES[font_id]
         print(f"{name} ({font_id})")
         files: dict[str, str] = {}
@@ -200,14 +222,8 @@ def build() -> None:
             static = make_static(raw, weight)
             target = OUT / font_id / f"{face_name}.ttf"
             subset(static, target)
-            grafted = (
-                []
-                if font_id == DONOR_ID
-                else graft_symbols(target, OUT / DONOR_ID / f"{face_name}.ttf")
-            )
             files[face_key] = f"{font_id}/{face_name}.ttf"
-            note = f"  +{','.join(grafted)}" if grafted else ""
-            print(f"  {face_name:<11} {target.stat().st_size / 1024:7.1f} KB  <- {source}{note}")
+            print(f"  {face_name:<11} {target.stat().st_size / 1024:7.1f} KB  <- {source}")
 
         licence_name = "OFL.txt"
         try:
@@ -224,6 +240,19 @@ def build() -> None:
             "url": f"https://github.com/google/fonts/tree/main/{directory}",
             "files": files,
         }
+
+    print("\nGrafting missing symbols")
+    for font_id in FAMILIES:
+        grafted: list[str] = []
+        for _, face_name, _, _ in FACES:
+            target = OUT / font_id / f"{face_name}.ttf"
+            for donor_id, wanted in DONORS:
+                if font_id == donor_id:
+                    continue
+                grafted += graft_symbols(target, OUT / donor_id / f"{face_name}.ttf", wanted)
+        if grafted:
+            unique = sorted(set(grafted))
+            print(f"  {font_id:<18} +{len(unique)} per face: {' '.join(unique)}")
 
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 

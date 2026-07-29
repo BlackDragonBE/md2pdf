@@ -14,7 +14,11 @@ export interface FontResolution {
 	failed: { role: FontRole; source: FontSourceT; reason: string }[];
 }
 
-async function loadSource(source: FontSourceT, warnings: string[]): Promise<ResolvedFont> {
+async function loadSource(
+	source: FontSourceT,
+	warnings: string[],
+	charset: string
+): Promise<ResolvedFont> {
 	switch (source.kind) {
 		case 'builtin':
 			return {
@@ -29,7 +33,7 @@ async function loadSource(source: FontSourceT, warnings: string[]): Promise<Reso
 				warnings
 			};
 		case 'google': {
-			const { faces } = await loadGoogleFaces(source.family, source.weights, warnings);
+			const { faces } = await loadGoogleFaces(source.family, source.weights, warnings, charset);
 			return { family: familyKey(source), faces, warnings };
 		}
 	}
@@ -38,20 +42,21 @@ async function loadSource(source: FontSourceT, warnings: string[]): Promise<Reso
 /** One slot: try the source, then `slot.fallback`, never silently succeed. */
 export async function resolveSlot(
 	slot: FontSlotT,
-	warnings: string[]
+	warnings: string[],
+	charset: string
 ): Promise<{ font: ResolvedFont; failure: string | null }> {
 	// Warnings from the attempt are only kept if the attempt succeeds. A family
 	// that failed outright must not also report "no italics face available" —
 	// that reads as if it partly worked.
 	const attemptWarnings: string[] = [];
 	try {
-		const font = await loadSource(slot.source, attemptWarnings);
+		const font = await loadSource(slot.source, attemptWarnings, charset);
 		warnings.push(...attemptWarnings);
 		return { font, failure: null };
 	} catch (e) {
 		const reason = e instanceof Error ? e.message : String(e);
 		const fallback: FontSourceT = { kind: 'builtin', id: slot.fallback };
-		const font = await loadSource(fallback, warnings);
+		const font = await loadSource(fallback, warnings, charset);
 		return { font, failure: reason };
 	}
 }
@@ -60,7 +65,7 @@ export async function resolveSlot(
  * Resolve all three slots. Slots sharing a source resolve once — the same
  * family key is registered a single time in the pdfmake dictionary.
  */
-export async function resolveFonts(theme: Theme): Promise<FontResolution> {
+export async function resolveFonts(theme: Theme, charset: string): Promise<FontResolution> {
 	const roles = ['body', 'heading', 'mono'] as const;
 	const warnings: string[] = [];
 	const failed: FontResolution['failed'] = [];
@@ -75,7 +80,7 @@ export async function resolveFonts(theme: Theme): Promise<FontResolution> {
 			continue;
 		}
 		const slotWarnings: string[] = [];
-		const { font, failure } = await resolveSlot(slot, slotWarnings);
+		const { font, failure } = await resolveSlot(slot, slotWarnings, charset);
 		if (failure) {
 			const reason = failure.replace(/\.$/, '');
 			failed.push({ role, source: slot.source, reason });

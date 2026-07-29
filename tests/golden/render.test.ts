@@ -378,3 +378,37 @@ describe('generated documents are text, not raster', () => {
 		expect(buffer.includes(Buffer.from('/Subtype /Image'))).toBe(false);
 	});
 });
+
+/**
+ * Box-drawing characters were absent from the subset ranges entirely, so every
+ * `tree`-style diagram rendered as blank boxes in every family.
+ */
+describe('box drawing', () => {
+	const ids = Object.keys(
+		JSON.parse(
+			readFileSync(join(import.meta.dirname, '..', '..', 'static', 'fonts', 'manifest.json'), 'utf8')
+		) as Record<string, unknown>
+	);
+
+	const BOX = '─│┌┐└┘├┤┬┴┼';
+
+	it.each(ids)('%s renders every box-drawing glyph', async (id) => {
+		const theme = cloneDefaultTheme();
+		theme.fonts.body = { source: { kind: 'builtin', id }, fallback: id };
+		theme.fonts.heading = { source: { kind: 'builtin', id }, fallback: id };
+		theme.fonts.mono = { source: { kind: 'builtin', id }, fallback: id };
+
+		const out = await renderAndExtract(`Tree: ${BOX}`, { theme });
+		for (const glyph of BOX) {
+			expect(out.text, `${id} lost ${glyph}`).toContain(glyph);
+		}
+	});
+
+	it('renders a full tree diagram inside a fence', async () => {
+		const out = await renderAndExtract(fixture('tree-diagram.md'));
+		expect(out.text).toContain('├──');
+		expect(out.text).toContain('└──');
+		expect(out.text).toContain('│');
+		expect(out.text).toContain('manifest.json');
+	});
+});

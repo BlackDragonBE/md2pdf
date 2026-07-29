@@ -1,5 +1,6 @@
 import bindingUrl from 'wawoff2/build/decompress_binding.js?url';
 import { getFont, putFont } from './cache';
+import { charsetKey } from './charset';
 import { completeFaces, type FaceBuffers, type FaceKey } from './types';
 import { sniffFont } from './upload';
 
@@ -111,7 +112,7 @@ function parseCss(css: string): FaceUrls {
 		const url = /src:[^;]*url\((https:\/\/[^)]+)\)/.exec(block)?.[1];
 		if (!url) continue;
 		const key = `${style}:${weight}`;
-		// css2 emits one block per unicode-range subset; the first covers latin.
+		// With `text=` there is exactly one block per face, so first wins is safe.
 		if (!urls.has(key)) urls.set(key, url);
 	}
 	return urls;
@@ -121,10 +122,23 @@ function parseCss(css: string): FaceUrls {
  * A single pinned weight maximises the chance of a static cut. A range
  * (`wght@400..700`) reliably returns a variable file, which pdfkit renders as
  * its default instance (§7.4).
+ *
+ * `text=` is what makes the tier usable at all. Without it css2 answers with a
+ * dozen `@font-face` blocks split by `unicode-range` — Cyrillic first, Latin
+ * last — and since pdfkit can embed only one file, picking a block meant every
+ * Latin character rendered as tofu. Asking for the document's characters
+ * returns a single subset that covers exactly them.
  */
-async function fetchWeight(family: string, weight: number, italic: boolean): Promise<string> {
+async function fetchWeight(
+	family: string,
+	weight: number,
+	italic: boolean,
+	charset: string
+): Promise<string> {
 	const spec = italic ? `ital,wght@1,${weight}` : `wght@${weight}`;
-	const url = `${CSS2}?family=${encodeURIComponent(family)}:${spec}&display=swap`;
+	const url =
+		`${CSS2}?family=${encodeURIComponent(family)}:${spec}` +
+		`&text=${encodeURIComponent(charset)}&display=swap`;
 	const face = italic ? `${weight} italic` : `${weight}`;
 
 	let res: Response;
@@ -191,8 +205,10 @@ export interface GoogleLoadResult {
 export async function loadGoogleFaces(
 	family: string,
 	weights: number[],
-	warnings: string[]
+	warnings: string[],
+	charset: string
 ): Promise<GoogleLoadResult> {
+	const subset = charsetKey(charset);
 	const regular = weights.find((w) => w <= 500) ?? weights[0] ?? 400;
 	const bold = weights.find((w) => w > 500) ?? 700;
 
@@ -205,7 +221,9 @@ export async function loadGoogleFaces(
 		(Object.keys(FACE_SPEC) as FaceKey[]).map(async (face) => {
 			const spec = FACE_SPEC[face];
 			const weight = spec.weight === 'bold' ? bold : regular;
-			const key = `google:${family}:${weight}:${spec.italic ? 'italic' : 'normal'}`;
+			// The cache key carries the subset: a different document may need
+			// characters this file does not have.
+			const key = `google:${family}:${weight}:${spec.italic ? 'italic' : 'normal'}:${subset}`;
 
 			const cached = await getFont(key);
 			if (cached) {
@@ -215,7 +233,7 @@ export async function loadGoogleFaces(
 			}
 
 			try {
-				const url = await fetchWeight(family, weight, spec.italic);
+				const url = await fetchWeight(family, weight, spec.italic, charset);
 				const downloaded = await fetch(url).then((r) => {
 					if (!r.ok) throw new Error(`gstatic responded ${r.status}`);
 					return r.arrayBuffer();
