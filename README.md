@@ -109,6 +109,23 @@ Offline operation was confirmed by killing the static server and reloading: the
 app comes up from the service worker, fonts from IndexedDB, and generates a
 37-page PDF with no network at all.
 
+## Using it
+
+- **Preview** opens at a zoom that fits the page to the pane; **Fit** returns to
+  it after manual zooming. The preview is a focusable scroll region, so arrow
+  keys, Page Up/Down, Home and End work once it has focus.
+- **Scroll position survives re-renders**, including zoom changes — editing does
+  not throw you back to page one.
+- **Paste an image** into the editor to embed it as a data URI. Relative image
+  paths cannot be resolved in a static app, so this is the way to include local
+  images. Pasted images are capped at 2 MB because the document is persisted to
+  localStorage.
+- **Tab / Shift+Tab** indent and outdent without leaving the editor, and without
+  discarding the browser's undo history.
+- **Ctrl/Cmd+S** downloads, **Ctrl/Cmd+Shift+B** toggles the theme panel.
+- Below 1100px the theme panel becomes an overlay; below 720px the editor and
+  preview stack.
+
 ## Verified unknowns
 
 DESIGN.md §16 lists five things it declined to guess at. All five were settled by
@@ -165,7 +182,24 @@ is commented at the site.
   positions) with pdf.js. Never pixels: those are flaky across pdfkit versions.
 - **E2E** — Playwright against the production build, because the worker and
   base-path behaviour only differ there. Downloads are parsed with pdf.js and
-  checked against what the preview is showing.
+  checked against what the preview is showing. Layout is covered too: several of
+  the worst bugs found so far were CSS, not logic, and were invisible to every
+  other kind of test.
+
+### Layout bugs are silent
+
+Nothing about a wrong `min-height` shows up in a type check, a unit test, or a
+PDF byte comparison. The suite therefore asserts on measured geometry —
+`scrollHeight` versus `clientHeight` per pane, page position relative to the
+viewport at high zoom, focus after a keystroke — because that is the only level
+at which these failures are visible:
+
+| Symptom | Cause |
+|---|---|
+| Nothing scrolled anywhere | panes defaulted to `min-height: auto` and overflowed their track |
+| Left of the page unreachable when zoomed | `align-items: center` on the scroll container |
+| Every keystroke after the first ignored | `<details open={prop}>` re-applied on re-render, collapsing the panel and dropping focus |
+| `12` typed into a field became `42` | clamping on every keystroke |
 
 ## Licence
 
