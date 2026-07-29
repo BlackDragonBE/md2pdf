@@ -3,13 +3,43 @@
 	import Editor from '$lib/components/Editor.svelte';
 	import MetaPanel from '$lib/components/MetaPanel.svelte';
 	import Preview from '$lib/components/Preview.svelte';
+	import Splitter from '$lib/components/Splitter.svelte';
 	import ThemePanel from '$lib/components/ThemePanel.svelte';
+	import { appearance, type Appearance } from '$lib/stores/appearance.svelte';
 	import { docStore } from '$lib/stores/doc.svelte';
 	import { pdfStore } from '$lib/stores/pdf.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { slugify } from '$lib/theme/io';
+	import { readJson, writeJson } from '$lib/stores/persist';
 
 	let zoom = $state(1);
+
+	/**
+	 * The PDF is usually what matters, so the split is adjustable and the editor
+	 * can be collapsed outright. Persisted: re-dragging it every visit would be
+	 * worse than not having it.
+	 */
+	const layout = readJson<{ editorFraction: number; showEditor: boolean }>('md2pdf:layout', {
+		editorFraction: 0.42,
+		showEditor: true
+	});
+	let editorFraction = $state(Math.min(0.75, Math.max(0.15, layout.editorFraction)));
+	let showEditor = $state(layout.showEditor !== false);
+	let splitTrack = $state<HTMLElement | null>(null);
+
+	function saveLayout() {
+		writeJson('md2pdf:layout', { editorFraction, showEditor });
+	}
+
+	function setEditorFraction(fraction: number) {
+		editorFraction = fraction;
+		saveLayout();
+	}
+
+	function toggleEditor() {
+		showEditor = !showEditor;
+		saveLayout();
+	}
 	/** Zoom at which the page exactly fills the preview pane. */
 	let fitZoom = $state(1);
 	/** Once the reader picks a zoom, stop re-fitting under them. */
@@ -55,11 +85,20 @@
 		} else if (e.key === 'b' && e.shiftKey) {
 			e.preventDefault();
 			showThemePanel = !showThemePanel;
+		} else if (e.key === 'e' && e.shiftKey) {
+			e.preventDefault();
+			toggleEditor();
 		}
 	}
 </script>
 
 <svelte:window {onkeydown} />
+
+<!--
+	Declared explicitly: the About page sets its own title, and without one here
+	the browser tab kept saying "md2pdf — about" after navigating back.
+-->
+<svelte:head><title>md2pdf</title></svelte:head>
 
 <div class="app" class:no-panel={!showThemePanel}>
 	<header>
@@ -99,6 +138,21 @@
 			}}
 			title="Fit the page to the preview width">Fit</button
 		>
+		<label class="appearance">
+			<span class="visually-hidden">Appearance</span>
+			<select
+				value={appearance.preference}
+				title="Light, dark or follow the system setting"
+				onchange={(e) => appearance.set(e.currentTarget.value as Appearance)}
+			>
+				<option value="system">Auto</option>
+				<option value="light">Light</option>
+				<option value="dark">Dark</option>
+			</select>
+		</label>
+		<button onclick={toggleEditor} aria-pressed={showEditor} title="Show or hide the Markdown editor">
+			{showEditor ? 'Hide editor' : 'Show editor'}
+		</button>
 		<button onclick={() => (showMeta = !showMeta)} aria-pressed={showMeta}>Metadata</button>
 		<button onclick={() => (showThemePanel = !showThemePanel)} aria-pressed={showThemePanel}>
 			Theme
@@ -133,28 +187,38 @@
 	{/if}
 
 	<main>
-		<section class="editor-pane">
-			{#if showMeta}
-				<MetaPanel meta={docStore.meta} onchange={(patch) => docStore.setMeta(patch)} />
-			{/if}
-			<Editor
-				value={docStore.source}
-				oninput={(v) => docStore.setSource(v)}
-				onnotice={(message) => (notice = message)}
-			/>
-		</section>
+		<div class="split" bind:this={splitTrack}>
+			{#if showEditor}
+				<section class="editor-pane" style="flex-basis: {editorFraction * 100}%">
+					{#if showMeta}
+						<MetaPanel meta={docStore.meta} onchange={(patch) => docStore.setMeta(patch)} />
+					{/if}
+					<Editor
+						value={docStore.source}
+						oninput={(v) => docStore.setSource(v)}
+						onnotice={(message) => (notice = message)}
+					/>
+				</section>
 
-		<section class="preview-pane">
-			<Preview
-				buffer={pdfStore.buffer}
-				{zoom}
-				busy={pdfStore.state === 'generating'}
-				onfit={(ratio) => {
-					fitZoom = Math.min(2, Math.max(0.4, Math.round(ratio * 20) / 20));
-					if (!zoomIsUsers) zoom = fitZoom;
-				}}
-			/>
-		</section>
+				<Splitter
+					value={editorFraction}
+					track={splitTrack}
+					onchange={(fraction) => setEditorFraction(fraction)}
+				/>
+			{/if}
+
+			<section class="preview-pane">
+				<Preview
+					buffer={pdfStore.buffer}
+					{zoom}
+					busy={pdfStore.state === 'generating'}
+					onfit={(ratio) => {
+						fitZoom = Math.min(2, Math.max(0.4, Math.round(ratio * 20) / 20));
+						if (!zoomIsUsers) zoom = fitZoom;
+					}}
+				/>
+			</section>
+		</div>
 
 		{#if showThemePanel}
 			<aside><ThemePanel /></aside>
@@ -163,7 +227,7 @@
 
 	<footer>
 		<span>Everything runs in your browser. Nothing is uploaded.</span>
-		<a href="{base}/licenses/">Font licences</a>
+		<a href="{base}/about/">About</a>
 	</footer>
 </div>
 
@@ -224,17 +288,21 @@
 		text-align: right;
 		font-variant-numeric: tabular-nums;
 	}
+	.appearance select {
+		padding: 4px 6px;
+		font-size: 12px;
+	}
 	.banner {
 		padding: 6px 12px;
 		font-size: 12px;
 		border-bottom: 1px solid var(--border);
 	}
 	.banner.error {
-		background: #3a1f26;
+		background: var(--banner-error-bg);
 		color: var(--error);
 	}
 	.banner.warn {
-		background: #3a2f1c;
+		background: var(--banner-warn-bg);
 		color: var(--warn);
 	}
 	.banner ul {
@@ -254,13 +322,26 @@
 	}
 	main {
 		flex: 1 1 auto;
-		display: grid;
-		grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr) 340px;
+		display: flex;
 		min-height: 0;
 		position: relative; /* containing block for the narrow-screen theme panel */
 	}
-	.app.no-panel main {
-		grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
+	/* The resizable pair. The theme panel sits outside it, so dragging the
+	   splitter divides editor against preview and never against the panel. */
+	.split {
+		flex: 1 1 auto;
+		display: flex;
+		min-width: 0;
+		min-height: 0;
+	}
+	.editor-pane {
+		flex: 0 0 auto;
+	}
+	.preview-pane {
+		flex: 1 1 auto;
+	}
+	aside {
+		flex: 0 0 340px;
 	}
 	/*
 	 * `min-height: 0` on every pane is what actually makes the inner
@@ -279,10 +360,10 @@
 	.editor-pane {
 		display: flex;
 		flex-direction: column;
-		border-right: 1px solid var(--border);
 	}
 	aside {
 		overflow: hidden;
+		border-left: 1px solid var(--border);
 	}
 	footer {
 		display: flex;
@@ -301,10 +382,6 @@
 	 * nothing when clicked.
 	 */
 	@media (max-width: 1100px) {
-		main,
-		.app.no-panel main {
-			grid-template-columns: 1fr 1fr;
-		}
 		aside {
 			position: absolute;
 			inset: 0 0 0 auto;
@@ -314,11 +391,28 @@
 		}
 	}
 
+	/* Stacked, so a horizontal splitter would make no sense; the editor can
+	   still be collapsed from the toolbar. */
 	@media (max-width: 720px) {
-		main,
-		.app.no-panel main {
-			grid-template-columns: 1fr;
-			grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+		.split {
+			flex-direction: column;
+		}
+		/* `height: 100%` is right for a row split and wrong for a column one:
+		   both panes would demand the full height and fight the flex sizing,
+		   collapsing the editor to a couple of rows. */
+		.editor-pane,
+		.preview-pane {
+			height: auto;
+		}
+		.editor-pane {
+			flex: 1 1 0 !important;
+			border-bottom: 1px solid var(--border);
+		}
+		.preview-pane {
+			flex: 1 1 0;
+		}
+		.split :global(.splitter) {
+			display: none;
 		}
 	}
 </style>

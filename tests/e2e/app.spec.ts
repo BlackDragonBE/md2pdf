@@ -230,10 +230,19 @@ test('applying a preset changes the document without warnings', async ({ page })
 	expect(pdf.pageCount).toBeGreaterThanOrEqual(3); // the preset adds a cover
 });
 
-test('the licences page lists every bundled family', async ({ page }) => {
-	await page.getByRole('link', { name: 'Font licences' }).click();
-	await expect(page.getByRole('heading', { name: 'Font licences' })).toBeVisible();
+test('the About page describes the project and lists every bundled family', async ({ page }) => {
+	await expect(page).toHaveTitle('md2pdf');
+
+	await page.getByRole('link', { name: 'About' }).click();
+	await expect(page.getByRole('heading', { name: 'About md2pdf' })).toBeVisible();
 	await expect(page.locator('tbody tr')).toHaveCount(12);
+	await expect(page.getByRole('link', { name: 'OFL-1.1' }).first()).toBeVisible();
+	await expect(page.getByText('entirely inside your browser')).toBeVisible();
+	await expect(page).toHaveTitle(/about/);
+
+	// Navigating back must restore the title, not leave the tab on the About one.
+	await page.getByRole('link', { name: 'back to the editor' }).click();
+	await expect(page).toHaveTitle('md2pdf');
 });
 
 test('reloading restores the document and fetches no font bytes', async ({ page }) => {
@@ -692,4 +701,114 @@ test('theme fields are labelled for assistive technology', async ({ page }) => {
 			.map((control) => `${control.tagName.toLowerCase()}[${control.getAttribute('type') ?? ''}]`);
 	});
 	expect(unnamed).toEqual([]);
+});
+
+test.describe('appearance', () => {
+	async function theme(page: Page) {
+		return page.evaluate(() => document.documentElement.dataset.theme);
+	}
+
+	test('switches between light, dark and system', async ({ page }) => {
+		const select = page.locator('.appearance select');
+
+		await select.selectOption('light');
+		expect(await theme(page)).toBe('light');
+		const lightBg = await page.evaluate(
+			() => getComputedStyle(document.body).backgroundColor
+		);
+
+		await select.selectOption('dark');
+		expect(await theme(page)).toBe('dark');
+		const darkBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+		expect(lightBg).not.toBe(darkBg);
+
+		await select.selectOption('system');
+		expect(['light', 'dark']).toContain(await theme(page));
+	});
+
+	test('survives a reload and paints without a flash of the wrong palette', async ({ page }) => {
+		await page.locator('.appearance select').selectOption('light');
+		await page.reload();
+
+		// Set by the inline script in app.html, so it is already correct at first
+		// paint rather than being corrected after hydration.
+		expect(await theme(page)).toBe('light');
+		await expect(page.locator('.appearance select')).toHaveValue('light');
+		await settled(page);
+	});
+
+	test('follows the OS setting when set to system', async ({ page }) => {
+		await page.locator('.appearance select').selectOption('system');
+
+		await page.emulateMedia({ colorScheme: 'light' });
+		await expect.poll(() => theme(page)).toBe('light');
+
+		await page.emulateMedia({ colorScheme: 'dark' });
+		await expect.poll(() => theme(page)).toBe('dark');
+	});
+});
+
+test.describe('editor pane layout', () => {
+	async function editorWidth(page: Page) {
+		return page.locator('.editor-pane').evaluate((el) => el.getBoundingClientRect().width);
+	}
+
+	test('the splitter resizes the editor against the preview', async ({ page }) => {
+		const before = await editorWidth(page);
+		const splitter = page.locator('.splitter');
+		const box = (await splitter.boundingBox())!;
+
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(box.x - 160, box.y + box.height / 2, { steps: 8 });
+		await page.mouse.up();
+
+		const after = await editorWidth(page);
+		expect(after).toBeLessThan(before - 80);
+
+		// The preview keeps working at the new size.
+		await expect(page.locator('.page').first()).toBeVisible();
+	});
+
+	test('the splitter resizes with the keyboard', async ({ page }) => {
+		const before = await editorWidth(page);
+		await page.locator('.splitter').focus();
+		await expect(page.locator('.splitter')).toBeFocused();
+
+		for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+		expect(await editorWidth(page)).toBeGreaterThan(before);
+
+		for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowLeft');
+		expect(await editorWidth(page)).toBeLessThan(before);
+	});
+
+	test('the editor can be collapsed so the PDF gets the space', async ({ page }) => {
+		const previewBefore = await page
+			.locator('.preview-pane')
+			.evaluate((el) => el.getBoundingClientRect().width);
+
+		await page.getByRole('button', { name: 'Hide editor' }).click();
+		await expect(page.locator('.editor-pane')).toHaveCount(0);
+		await expect(page.locator('.splitter')).toHaveCount(0);
+
+		const previewAfter = await page
+			.locator('.preview-pane')
+			.evaluate((el) => el.getBoundingClientRect().width);
+		expect(previewAfter).toBeGreaterThan(previewBefore);
+
+		await page.getByRole('button', { name: 'Show editor' }).click();
+		await expect(page.locator('textarea.editor')).toBeVisible();
+	});
+
+	test('the split survives a reload', async ({ page }) => {
+		await page.locator('.splitter').focus();
+		for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowLeft');
+		const width = await editorWidth(page);
+
+		await page.reload();
+		await settled(page);
+
+		expect(Math.abs((await editorWidth(page)) - width)).toBeLessThan(12);
+	});
 });

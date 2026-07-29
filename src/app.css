@@ -1,3 +1,8 @@
+/*
+ * Dark is the default so the first paint is never a white flash, and
+ * `data-theme` on <html> (set before hydration by app.html) switches the whole
+ * palette. Only the app chrome is themed — the PDF has its own theme.
+ */
 :root {
 	--bg: #14171d;
 	--bg-panel: #1c1f26;
@@ -13,9 +18,39 @@
 	--warn: #e0af68;
 	--error: #f7768e;
 	--ok: #9ece6a;
+	--banner-warn-bg: #3a2f1c;
+	--banner-error-bg: #3a1f26;
+	--preview-bg: #0f1116;
+	--page-shadow: 0 2px 14px rgb(0 0 0 / 0.5);
+	--scroll-thumb: #39404f;
+	--scroll-thumb-hover: #4c5568;
 	--radius: 6px;
 	--mono: ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 	color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+	--bg: #ffffff;
+	--bg-panel: #f4f5f7;
+	--bg-raised: #e9ebef;
+	--bg-input: #ffffff;
+	--border: #d8dce3;
+	--border-strong: #b6bcc7;
+	--text: #1a1d23;
+	--text-dim: #545b68;
+	--text-faint: #7d8595;
+	--accent: #2f6fd0;
+	--accent-dim: #2f6fd0;
+	--warn: #8a5b00;
+	--error: #b3261e;
+	--ok: #256d2b;
+	--banner-warn-bg: #fdf3d8;
+	--banner-error-bg: #fbe3e1;
+	--preview-bg: #9ca3af;
+	--page-shadow: 0 2px 10px rgb(0 0 0 / 0.28);
+	--scroll-thumb: #c3c8d1;
+	--scroll-thumb-hover: #a8aeba;
+	color-scheme: light;
 }
 
 * {
@@ -51,7 +86,8 @@ button {
 
 button:hover:not(:disabled) {
 	border-color: var(--border-strong);
-	background: #2b3040;
+	background: var(--bg-raised);
+	filter: brightness(1.08);
 }
 
 button:disabled {
@@ -66,7 +102,7 @@ button.primary {
 }
 
 button.primary:hover:not(:disabled) {
-	background: #47639b;
+	filter: brightness(1.12);
 }
 
 input,
@@ -113,12 +149,12 @@ a {
 	background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-	background: #39404f;
+	background: var(--scroll-thumb);
 	border-radius: 6px;
 	border: 2px solid var(--bg);
 }
 ::-webkit-scrollbar-thumb:hover {
-	background: #4c5568;
+	background: var(--scroll-thumb-hover);
 }
 
 .visually-hidden {

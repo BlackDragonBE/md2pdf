@@ -1,8 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { appearance } from '$lib/stores/appearance.svelte';
 	import '../app.css';
 
 	let { children } = $props();
+
+	/**
+	 * Keeps <html data-theme> in step when the preference or the OS setting
+	 * changes. The *initial* value is set by an inline script in app.html —
+	 * `ssr = false` means this component only runs after first paint, so doing it
+	 * here alone would flash the wrong palette.
+	 */
+	$effect(() => appearance.apply());
 
 	/**
 	 * Registered by hand. `injectRegister` is off in vite.config.ts because

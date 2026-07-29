@@ -237,7 +237,7 @@
 	.wrap {
 		position: relative;
 		height: 100%;
-		background: #0f1116;
+		background: var(--preview-bg);
 	}
 	.viewport {
 		height: 100%;
@@ -265,7 +265,7 @@
 	}
 	.page {
 		background: #fff;
-		box-shadow: 0 2px 14px rgb(0 0 0 / 0.5);
+		box-shadow: var(--page-shadow);
 		flex: none;
 	}
 	.page :global(canvas) {
@@ -283,7 +283,7 @@
 		position: absolute;
 		right: 12px;
 		bottom: 12px;
-		background: rgb(20 23 29 / 0.9);
+		background: var(--bg-panel);
 		border: 1px solid var(--border);
 		border-radius: 999px;
 		padding: 3px 10px;

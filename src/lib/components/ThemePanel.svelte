@@ -940,7 +940,7 @@
 	.warnings {
 		margin: 0;
 		padding: 8px 12px 8px 28px;
-		background: #3a2f1c;
+		background: var(--banner-warn-bg);
 		border-bottom: 1px solid var(--border);
 		color: var(--warn);
 		font-size: 11.5px;
