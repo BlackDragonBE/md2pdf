@@ -158,6 +158,10 @@ test('the page-break marker splits pages and stays literal inside a fence', asyn
 
 test('a theme change reaches the PDF', async ({ page }) => {
 	await setSource(page, '# Heading\n\nBody paragraph.');
+	// Pin the zoom: auto-fit would otherwise zoom in on the narrower page and
+	// keep the rendered width almost unchanged, hiding the size change.
+	await page.locator('.zoom input').fill('0.5');
+	await page.waitForTimeout(2000);
 	const widthBefore = await page.locator('.page').first().evaluate((el) => el.clientWidth);
 
 	const pageSection = await openSection(page, 'Page');
@@ -298,6 +302,9 @@ test.describe('scrolling', () => {
 			});
 		expect(target).toBeGreaterThan(0);
 
+		// The page indicator updates from the scroll event, so wait for it to
+		// catch up before capturing — otherwise the "before" value is stale.
+		await expect(page.locator('.status')).not.toHaveText(/^page 1 /);
 		const pageBefore = await page.locator('.status').textContent();
 
 		await afterRender(page, async () => {
