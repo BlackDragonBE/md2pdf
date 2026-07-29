@@ -41,7 +41,11 @@
 <style>
 	.editor {
 		width: 100%;
-		height: 100%;
+		/* Flex child of .editor-pane: `flex: 1` + `min-height: 0` rather than
+		   `height: 100%`, so the metadata panel can appear above it without
+		   pushing the textarea past the bottom of the pane. */
+		flex: 1 1 auto;
+		min-height: 0;
 		border: 0;
 		border-radius: 0;
 		resize: none;

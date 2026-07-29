@@ -167,20 +167,39 @@
 </script>
 
 <div class="wrap">
-	<div class="viewport" bind:this={container} {onscroll} role="document" tabindex="-1">
-		{#if renderError}
-			<p class="error">Preview failed: {renderError}</p>
-		{:else if pages.length === 0}
-			<p class="empty">{busy ? 'Generating…' : 'Nothing to preview yet.'}</p>
-		{:else}
-			{#each pages as page, i (i)}
-				<div
-					class="page"
-					style="width:{page.width}px;height:{page.height}px;margin-bottom:{GAP}px"
-					use:attach={canvases[i]}
-				></div>
-			{/each}
-		{/if}
+	<!--
+		Focusable and labelled: a scroll container that cannot take focus cannot be
+		scrolled with the keyboard at all, so arrow keys and Page Up/Down did
+		nothing for anyone not using a pointer.
+
+		The lint rule does not model scrollable regions, which WCAG 2.1.1 requires
+		to be keyboard-operable; `role="region"` + `aria-label` + `tabindex="0"` is
+		the prescribed pattern for exactly this case.
+	-->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div
+		class="viewport"
+		bind:this={container}
+		{onscroll}
+		role="region"
+		aria-label="PDF preview{pages.length ? `, ${pages.length} pages` : ''}"
+		tabindex="0"
+	>
+		<div class="track">
+			{#if renderError}
+				<p class="error">Preview failed: {renderError}</p>
+			{:else if pages.length === 0}
+				<p class="empty">{busy ? 'Generating…' : 'Nothing to preview yet.'}</p>
+			{:else}
+				{#each pages as page, i (i)}
+					<div
+						class="page"
+						style="width:{page.width}px;height:{page.height}px;margin-bottom:{GAP}px"
+						use:attach={canvases[i]}
+					></div>
+				{/each}
+			{/if}
+		</div>
 	</div>
 	{#if pages.length}
 		<div class="status">page {visiblePage} / {pages.length}</div>
@@ -196,13 +215,26 @@
 	.viewport {
 		height: 100%;
 		overflow: auto;
-		padding: 16px 0;
+	}
+	.viewport:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: -2px;
+	}
+	/*
+	 * Centring happens on this inner track, never on the scroll container.
+	 * `align-items: center` directly on an overflowing scroll container pushes
+	 * content equally past both edges, and only the right-hand overflow is
+	 * reachable — at 200% zoom the left of the page was cut off with no way to
+	 * scroll to it. Sizing the track to `max-content` (but never below the
+	 * viewport) keeps the whole page inside the scrollable area at any zoom.
+	 */
+	.track {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-	}
-	.viewport:focus-visible {
-		outline: none;
+		width: max-content;
+		min-width: 100%;
+		padding: 16px 0;
 	}
 	.page {
 		background: #fff;

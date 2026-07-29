@@ -6,7 +6,7 @@ function container(scrollTop: number, scrollHeight: number, clientHeight: number
 	return { scrollTop, scrollHeight, clientHeight } as unknown as HTMLElement;
 }
 
-/** Page tops for N pages of equal height, with a 16pt gap, matching Preview. */
+/** Page tops for N pages of equal height, with a 16px gap, matching Preview. */
 function tops(count: number, height = 800, gap = 16): number[] {
 	return Array.from({ length: count }, (_, i) => gap + i * (height + gap));
 }
@@ -20,11 +20,11 @@ describe('scroll anchoring', () => {
 		expect(capture(container(2500, 4080, 600), t).page).toBe(4);
 	});
 
-	it('records the offset within the page', () => {
-		const t = tops(5);
-		const anchor = capture(container(t[2] + 120, 4080, 600), t);
+	it('records the offset as a fraction of the page span', () => {
+		const t = tops(5); // span 816
+		const anchor = capture(container(t[2] + 408, 4080, 600), t);
 		expect(anchor.page).toBe(3);
-		expect(anchor.offsetInPage).toBe(120);
+		expect(anchor.offsetInPage).toBeCloseTo(0.5, 5);
 	});
 
 	it('round-trips an exact scroll position when the layout is unchanged', () => {
@@ -32,7 +32,7 @@ describe('scroll anchoring', () => {
 		const anchor = capture(container(1700, 4080, 600), t);
 		const target = container(0, 4080, 600);
 		restore(target, anchor, t);
-		expect(target.scrollTop).toBe(1700);
+		expect(target.scrollTop).toBeCloseTo(1700, 5);
 	});
 
 	it('keeps the reader on the same page when earlier pages reflow', () => {
@@ -42,7 +42,24 @@ describe('scroll anchoring', () => {
 		const after = tops(6, 900);
 		const target = container(0, 5500, 600);
 		restore(target, anchor, after);
-		expect(target.scrollTop).toBe(after[3] + 50);
+		expect(target.scrollTop).toBeGreaterThan(after[3]);
+		expect(target.scrollTop).toBeLessThan(after[4]);
+	});
+
+	/** A pixel offset would drift on every zoom change; a fraction does not. */
+	it('lands on the same point in the page after a zoom change', () => {
+		const atOneX = tops(6, 800);
+		const anchor = capture(container(atOneX[3] + 400, 5000, 600), atOneX);
+		expect(anchor.offsetInPage).toBeCloseTo(400 / 816, 5);
+
+		const atTwoX = tops(6, 1600, 32);
+		const target = container(0, 10000, 600);
+		restore(target, anchor, atTwoX);
+
+		// Halfway down page 4 at 1x must still be halfway down page 4 at 2x.
+		const spanAtTwoX = atTwoX[4] - atTwoX[3];
+		const positionInPage = (target.scrollTop - atTwoX[3]) / spanAtTwoX;
+		expect(positionInPage).toBeCloseTo(400 / 816, 5);
 	});
 
 	it('falls back to the scroll ratio when the anchored page no longer exists', () => {
@@ -71,16 +88,14 @@ describe('scroll anchoring', () => {
 		expect(capture(container(99999, 2500, 600), t).ratio).toBe(1);
 	});
 
-	it('survives a container that cannot scroll', () => {
+	it('survives a single-page document, where there is no span to measure', () => {
 		const t = tops(1);
 		const anchor = capture(container(0, 500, 500), t);
 		expect(Number.isFinite(anchor.ratio)).toBe(true);
-		// scrollTop 0 sits in the gap above page 1, so the offset is negative and
-		// restoring lands back on 0 rather than jumping down to the page top.
-		expect(anchor.offsetInPage).toBe(-16);
+		expect(anchor.offsetInPage).toBe(0);
 		const target = container(0, 500, 500);
 		restore(target, anchor, t);
-		expect(target.scrollTop).toBe(0);
+		expect(target.scrollTop).toBe(16);
 	});
 
 	it('survives an empty document', () => {
@@ -89,5 +104,15 @@ describe('scroll anchoring', () => {
 		const target = container(0, 0, 600);
 		restore(target, anchor, []);
 		expect(target.scrollTop).toBe(0);
+	});
+
+	it('produces a finite scrollTop for every anchor it can produce', () => {
+		const t = tops(4);
+		for (const position of [0, 16, 500, 832, 3000, 4000]) {
+			const anchor = capture(container(position, 3400, 600), t);
+			const target = container(0, 3400, 600);
+			restore(target, anchor, t);
+			expect(Number.isFinite(target.scrollTop), `position ${position}`).toBe(true);
+		}
 	});
 });

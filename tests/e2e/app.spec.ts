@@ -247,6 +247,184 @@ test('reloading restores the document and fetches no font bytes', async ({ page 
 	expect(ttfRequests).toBe(0);
 });
 
+/** A long document, so every pane genuinely overflows. */
+const LONG_DOC = Array.from(
+	{ length: 60 },
+	(_, i) => `## Section ${i}\n\n${'Filler text for the scroll tests. '.repeat(12)}`
+).join('\n\n');
+
+async function metrics(page: Page, selector: string) {
+	return page.locator(selector).evaluate((el) => ({
+		clientHeight: el.clientHeight,
+		scrollHeight: el.scrollHeight,
+		clientWidth: el.clientWidth,
+		scrollWidth: el.scrollWidth,
+		scrollTop: el.scrollTop
+	}));
+}
+
+test.describe('scrolling', () => {
+	/**
+	 * Grid and flex items default to `min-height: auto`, so a pane without an
+	 * explicit `min-height: 0` grows to its content height, overflows its track,
+	 * and no descendant ever becomes a scroll container. That made the editor,
+	 * the preview and the theme panel all unscrollable at once.
+	 */
+	test('every pane is a real scroll container', async ({ page }) => {
+		await setSource(page, LONG_DOC);
+
+		for (const selector of ['.viewport', 'textarea.editor', '.panel']) {
+			const box = await metrics(page, selector);
+			expect(box.scrollHeight, `${selector} does not overflow`).toBeGreaterThan(box.clientHeight);
+		}
+
+		// Nothing may spill out of the viewport-height shell.
+		const shell = await metrics(page, '.app');
+		expect(shell.scrollHeight).toBeLessThanOrEqual(shell.clientHeight + 1);
+		const documentScrolls = await page.evaluate(
+			() => document.documentElement.scrollHeight > window.innerHeight + 1
+		);
+		expect(documentScrolls).toBe(false);
+	});
+
+	test('the preview keeps its position across a re-render', async ({ page }) => {
+		await setSource(page, LONG_DOC);
+
+		const target = await page
+			.locator('.viewport')
+			.evaluate((el) => {
+				el.scrollTop = Math.round(el.scrollHeight * 0.5);
+				return el.scrollTop;
+			});
+		expect(target).toBeGreaterThan(0);
+
+		const pageBefore = await page.locator('.status').textContent();
+
+		await afterRender(page, async () => {
+			await page.locator('textarea.editor').fill(`${LONG_DOC}\n\nAppended paragraph.`);
+		});
+
+		const after = await metrics(page, '.viewport');
+		expect(after.scrollTop, 'snapped back to the top').toBeGreaterThan(0);
+		expect(Math.abs(after.scrollTop - target)).toBeLessThan(120);
+		expect(await page.locator('.status').textContent()).toBe(pageBefore);
+	});
+
+	test('the preview scrolls with the keyboard', async ({ page }) => {
+		await setSource(page, LONG_DOC);
+
+		await page.locator('.viewport').focus();
+		await expect(page.locator('.viewport')).toBeFocused();
+
+		await page.keyboard.press('PageDown');
+		await page.waitForTimeout(300);
+		const afterPageDown = await metrics(page, '.viewport');
+		expect(afterPageDown.scrollTop).toBeGreaterThan(0);
+
+		await page.keyboard.press('End');
+		await page.waitForTimeout(300);
+		const afterEnd = await metrics(page, '.viewport');
+		expect(afterEnd.scrollTop).toBeGreaterThan(afterPageDown.scrollTop);
+	});
+
+	test('scrolling a long document rasterises pages as they come into view', async ({ page }) => {
+		// Past the 20-page virtualisation threshold.
+		await setSource(
+			page,
+			Array.from({ length: 200 }, (_, i) => `## Section ${i}\n\n${'Filler. '.repeat(30)}`).join(
+				'\n\n'
+			)
+		);
+		const pageCount = await page.locator('.page').count();
+		expect(pageCount).toBeGreaterThan(20);
+
+		// Only a window of pages is rasterised, never all of them.
+		await expect(page.locator('.page canvas')).toHaveCount(3, { timeout: 20_000 });
+
+		await page.locator('.viewport').evaluate((el) => {
+			el.scrollTop = Math.round(el.scrollHeight * 0.5);
+			el.dispatchEvent(new Event('scroll'));
+		});
+
+		await expect(page.locator('.status')).not.toHaveText(`page 1 / ${pageCount}`);
+		// Still a bounded window after scrolling, and still showing something.
+		const canvases = await page.locator('.page canvas').count();
+		expect(canvases).toBeGreaterThan(0);
+		expect(canvases).toBeLessThanOrEqual(6);
+	});
+
+	/**
+	 * `align-items: center` on a scroll container pushes overflow past both
+	 * edges, and only the right-hand overflow is reachable — at 200% zoom the
+	 * left of the page was cut off with no way to scroll to it.
+	 */
+	test('a zoomed page is reachable edge to edge', async ({ page }) => {
+		await setSource(page, '# Zoom\n\nBody text.');
+		await page.locator('.zoom input').fill('2');
+		await page.waitForTimeout(2500);
+
+		const viewport = await metrics(page, '.viewport');
+		const pageWidth = await page.locator('.page').first().evaluate((el) => el.clientWidth);
+
+		expect(pageWidth).toBeGreaterThan(viewport.clientWidth);
+		expect(viewport.scrollWidth).toBeGreaterThanOrEqual(pageWidth);
+
+		// At scrollLeft 0 the left edge of the page must be inside the viewport.
+		const leftOffset = await page.evaluate(() => {
+			const view = document.querySelector('.viewport')!;
+			view.scrollLeft = 0;
+			const sheet = document.querySelector('.page')!;
+			return Math.round(sheet.getBoundingClientRect().left - view.getBoundingClientRect().left);
+		});
+		expect(leftOffset).toBeGreaterThanOrEqual(0);
+	});
+
+	test('a page narrower than the pane stays centred without a scrollbar', async ({ page }) => {
+		await setSource(page, '# Small\n\nBody text.');
+		await page.locator('.zoom input').fill('0.4');
+		await page.waitForTimeout(2500);
+
+		const gaps = await page.evaluate(() => {
+			const view = document.querySelector('.viewport')!.getBoundingClientRect();
+			const sheet = document.querySelector('.page')!.getBoundingClientRect();
+			return { left: Math.round(sheet.left - view.left), right: Math.round(view.right - sheet.right) };
+		});
+		expect(Math.abs(gaps.left - gaps.right)).toBeLessThanOrEqual(2);
+
+		const viewport = await metrics(page, '.viewport');
+		expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth + 1);
+	});
+
+	test('the theme panel stays reachable on a narrow screen', async ({ page }) => {
+		await page.setViewportSize({ width: 900, height: 800 });
+		const panel = page.locator('.panel');
+		await expect(panel).toBeVisible();
+
+		const box = await metrics(page, '.panel');
+		expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+
+		// The Theme button must actually do something, not just claim to.
+		await page.getByRole('button', { name: 'Theme' }).click();
+		await expect(panel).toBeHidden();
+		await page.getByRole('button', { name: 'Theme' }).click();
+		await expect(panel).toBeVisible();
+	});
+
+	test('stacks into one column on a phone-sized viewport', async ({ page }) => {
+		await page.setViewportSize({ width: 640, height: 800 });
+		await setSource(page, LONG_DOC);
+
+		const shell = await metrics(page, '.app');
+		expect(shell.scrollHeight).toBeLessThanOrEqual(shell.clientHeight + 1);
+
+		for (const selector of ['.viewport', 'textarea.editor']) {
+			const box = await metrics(page, selector);
+			expect(box.clientHeight, `${selector} collapsed`).toBeGreaterThan(100);
+			expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+		}
+	});
+});
+
 test('installs as a PWA and precaches the app shell', async ({ page }) => {
 	// The manifest link has to be in the prerendered HTML: `ssr = false` means a
 	// <svelte:head> link would never reach the document an installer reads.

@@ -121,10 +121,23 @@
 </div>
 
 <style>
+	/*
+	 * Flex column, not a grid with fixed rows: the number of banner elements
+	 * varies from zero to three, and positional grid rows put <main> on whichever
+	 * track happens to line up — with no banners it landed on an `auto` track and
+	 * grew to its content height.
+	 */
 	.app {
-		display: grid;
-		grid-template-rows: auto auto 1fr auto;
+		display: flex;
+		flex-direction: column;
 		height: 100vh;
+		height: 100dvh;
+		overflow: hidden;
+	}
+	header,
+	footer,
+	.banner {
+		flex: none;
 	}
 	header {
 		display: flex;
@@ -185,24 +198,35 @@
 		cursor: pointer;
 	}
 	main {
+		flex: 1 1 auto;
 		display: grid;
 		grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr) 340px;
 		min-height: 0;
+		position: relative; /* containing block for the narrow-screen theme panel */
 	}
 	.app.no-panel main {
 		grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
 	}
+	/*
+	 * `min-height: 0` on every pane is what actually makes the inner
+	 * `overflow: auto` work. Grid and flex items default to `min-height: auto`,
+	 * so without it a pane grows to its content height, overflows its track, and
+	 * no descendant ever becomes a scroll container — the editor, the preview and
+	 * the theme panel were all unscrollable for this reason.
+	 */
+	.editor-pane,
+	.preview-pane,
+	aside {
+		min-width: 0;
+		min-height: 0;
+		height: 100%;
+	}
 	.editor-pane {
 		display: flex;
 		flex-direction: column;
-		min-width: 0;
 		border-right: 1px solid var(--border);
 	}
-	.preview-pane {
-		min-width: 0;
-	}
 	aside {
-		min-width: 0;
 		overflow: hidden;
 	}
 	footer {
@@ -215,13 +239,31 @@
 		color: var(--text-faint);
 	}
 
+	/*
+	 * Below this width the panel becomes an overlay rather than disappearing.
+	 * It used to be `display: none` while the Theme button carried on reporting
+	 * aria-pressed="true" — a control that lies about its own state and does
+	 * nothing when clicked.
+	 */
 	@media (max-width: 1100px) {
 		main,
 		.app.no-panel main {
 			grid-template-columns: 1fr 1fr;
 		}
 		aside {
-			display: none;
+			position: absolute;
+			inset: 0 0 0 auto;
+			width: min(340px, 92vw);
+			z-index: 5;
+			box-shadow: -8px 0 24px rgb(0 0 0 / 0.45);
+		}
+	}
+
+	@media (max-width: 720px) {
+		main,
+		.app.no-panel main {
+			grid-template-columns: 1fr;
+			grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
 		}
 	}
 </style>
