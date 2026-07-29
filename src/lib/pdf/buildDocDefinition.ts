@@ -23,9 +23,26 @@ export interface BuildInput {
 	fonts: FontMap;
 }
 
+/** Where a source line ended up in the finished PDF. */
+export interface Anchor {
+	/** 0-based source line. */
+	line: number;
+	/** 1-based physical page. */
+	page: number;
+	/** Offset from the top of that page, in points. */
+	top: number;
+}
+
 export interface BuildResult {
 	docDefinition: DocDefinition;
 	warnings: string[];
+	/**
+	 * Filled during layout, not at build time — read it only after the document
+	 * has been generated. pdfmake calls `pageBreakBefore` for every node and
+	 * hands back the position it settled at, which is the only way to learn
+	 * where a given line of Markdown landed.
+	 */
+	anchors: Map<number, Anchor>;
 }
 
 const HEADING_KEYS: ElementKey[] = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
@@ -51,6 +68,8 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 	// Indexed by headlineLevel, so 1-based with a dead slot at 0.
 	const keepWithNext: boolean[] = [false, ...HEADING_KEYS.map((k) => t.elements[k].keepWithNext)];
 
+	const anchors = new Map<number, Anchor>();
+
 	const docDefinition: DocDefinition = {
 		pageSize: t.page.size,
 		pageOrientation: t.page.orientation,
@@ -72,13 +91,28 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 			headerFor(currentPage, pageCount, ps, t, meta, fonts, warnings),
 		footer: (currentPage, pageCount, ps) =>
 			footerFor(currentPage, pageCount, ps, t, meta, fonts, warnings),
-		// A heading that lands last on a page strands its section (§6.8).
-		pageBreakBefore: (currentNode: PageBreakNodeInfo, followingNodesOnPage: PageBreakNodeInfo[]) =>
-			currentNode.headlineLevel != null &&
-			keepWithNext[currentNode.headlineLevel] === true &&
-			followingNodesOnPage.length === 0,
+		pageBreakBefore: (currentNode: PageBreakNodeInfo, followingNodesOnPage: PageBreakNodeInfo[]) => {
+			// Harvest the position while we are here; pdfmake offers no other hook
+			// that reports where a node actually landed. Layout runs twice, so a
+			// later pass simply overwrites with the final numbers.
+			const id = currentNode.id;
+			const position = currentNode.startPosition;
+			if (id && id.charCodeAt(0) === 76 /* L */ && position) {
+				const line = Number(id.slice(1));
+				if (Number.isFinite(line)) {
+					anchors.set(line, { line, page: position.pageNumber, top: position.top });
+				}
+			}
+
+			// A heading that lands last on a page strands its section (§6.8).
+			return (
+				currentNode.headlineLevel != null &&
+				keepWithNext[currentNode.headlineLevel] === true &&
+				followingNodesOnPage.length === 0
+			);
+		},
 		compress: true
 	};
 
-	return { docDefinition, warnings: [...warnings] };
+	return { docDefinition, warnings: [...warnings], anchors };
 }

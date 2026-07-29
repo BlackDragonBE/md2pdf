@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import PdfPrinter from 'pdfmake/src/printer.js';
-import { buildDocDefinition } from '../../src/lib/pdf/buildDocDefinition';
+import { buildDocDefinition, type Anchor } from '../../src/lib/pdf/buildDocDefinition';
 import { buildLayouts } from '../../src/lib/pdf/layouts';
 import { parse } from '../../src/lib/markdown/parse';
 import type { ResolvedImage } from '../../src/lib/pdf/images';
@@ -48,6 +48,8 @@ export interface RenderedPdf {
 	buffer: Buffer;
 	warnings: string[];
 	docDefinition: ReturnType<typeof buildDocDefinition>['docDefinition'];
+	/** Populated during layout, so only readable after the document is flushed. */
+	anchors: Anchor[];
 }
 
 export async function renderMarkdown(
@@ -64,7 +66,7 @@ export async function renderMarkdown(
 		mono: `b_${theme.fonts.mono.source.kind === 'builtin' ? theme.fonts.mono.source.id : theme.fonts.mono.fallback}`
 	};
 
-	const { docDefinition, warnings } = buildDocDefinition({
+	const { docDefinition, warnings, anchors } = buildDocDefinition({
 		tokens: parsed.tokens,
 		theme,
 		meta: parsed.meta,
@@ -85,7 +87,12 @@ export async function renderMarkdown(
 		doc.end();
 	});
 
-	return { buffer, warnings: [...warnings, ...parsed.warnings], docDefinition };
+	return {
+		buffer,
+		warnings: [...warnings, ...parsed.warnings],
+		docDefinition,
+		anchors: [...anchors.values()].sort((a, b) => a.line - b.line)
+	};
 }
 
 export interface TextItemGeometry {

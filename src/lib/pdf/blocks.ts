@@ -44,10 +44,24 @@ function renderBlocks(cur: Cursor, ctx: BlockContext, stop: string | null): Cont
 	while (!cur.done()) {
 		const tok = cur.peek() as Token;
 		if (stop && tok.type === stop) break;
+		// The source line that produced this block. pdfmake reports `id` back with
+		// the node's final page and offset, which is what scroll sync maps through.
+		const line = tok.map?.[0];
 		const node = renderBlock(cur, ctx);
-		if (node) out.push(...(Array.isArray(node) ? node : [node]));
+		if (!node) continue;
+		for (const produced of Array.isArray(node) ? node : [node]) {
+			if (line != null && isTaggable(produced)) {
+				(produced as { id?: string }).id = `L${line}`;
+			}
+			out.push(produced);
+		}
 	}
 	return out;
+}
+
+/** Only object nodes can carry an id; strings and arrays cannot. */
+function isTaggable(node: Content): node is Exclude<Content, string | Content[]> {
+	return typeof node === 'object' && node !== null && !Array.isArray(node) && !('id' in node);
 }
 
 function elementNode(node: Content, key: ElementKey, t: Theme): Content {

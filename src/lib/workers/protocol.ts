@@ -1,5 +1,6 @@
 import type Token from 'markdown-it/lib/token.mjs';
 import type { DocMeta } from '../markdown/frontmatter';
+import type { Anchor } from '../pdf/buildDocDefinition';
 import type { ResolvedImage } from '../pdf/images';
 import type { FontDictionary, Vfs } from '../pdf/pdfmake-types';
 import type { FontRole, Theme } from '../theme/schema';
@@ -26,5 +27,12 @@ export interface RenderRequest {
 }
 
 export type RenderResponse =
-	| { id: number; ok: true; buffer: ArrayBuffer; pageCount: number; warnings: string[] }
+	| {
+			id: number;
+			ok: true;
+			buffer: ArrayBuffer;
+			pageCount: number;
+			warnings: string[];
+			anchors: Anchor[];
+	  }
 	| { id: number; ok: false; error: string };

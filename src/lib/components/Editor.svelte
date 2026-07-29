@@ -1,11 +1,36 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { LineMetrics } from '$lib/preview/lineMetrics';
+
 	interface Props {
 		value: string;
 		oninput: (value: string) => void;
 		/** Surfaced to the user; currently only for a rejected image paste. */
 		onnotice?: (message: string) => void;
+		/** Fired when the reader scrolls the editor, for scroll sync. */
+		onuserscroll?: () => void;
 	}
-	let { value, oninput, onnotice }: Props = $props();
+	let { value, oninput, onnotice, onuserscroll }: Props = $props();
+
+	let textarea = $state<HTMLTextAreaElement | null>(null);
+	const metrics = new LineMetrics();
+
+	onDestroy(() => metrics.destroy());
+
+	/**
+	 * Scroll-sync surface. Measurement is lazy — the mirror is only built when
+	 * sync actually asks for a mapping, so the cost is nil when it is off.
+	 */
+	export function currentLine(): number {
+		if (!textarea) return 0;
+		metrics.measure(textarea, value);
+		return metrics.lineAt(textarea.scrollTop);
+	}
+	export function scrollToLine(line: number): void {
+		if (!textarea) return;
+		metrics.measure(textarea, value);
+		textarea.scrollTop = Math.max(0, metrics.offsetOf(line));
+	}
 
 	/**
 	 * A pasted image is inlined into the Markdown as a data URI, and the document
@@ -93,6 +118,8 @@
 </script>
 
 <textarea
+	bind:this={textarea}
+	onscroll={() => onuserscroll?.()}
 	class="editor"
 	spellcheck="false"
 	aria-label="Markdown source"

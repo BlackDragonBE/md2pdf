@@ -13,8 +13,23 @@
 		 * the preview would otherwise open horizontally clipped.
 		 */
 		onfit?: (fitZoom: number) => void;
+		/** Fired when the reader scrolls the preview, for scroll sync. */
+		onuserscroll?: () => void;
 	}
-	let { buffer, zoom, busy, onfit }: Props = $props();
+	let { buffer, zoom, busy, onfit, onuserscroll }: Props = $props();
+
+	/** Scroll-sync surface, driven from the page. */
+	export function scrollOffset(): number {
+		return container?.scrollTop ?? 0;
+	}
+	export function scrollToOffset(offset: number): void {
+		if (!container) return;
+		// Keep the anchored line a little below the top edge, as a reader expects.
+		container.scrollTop = Math.max(0, offset - 24);
+	}
+	export function syncGeometry(): { pageTops: number[]; zoom: number } {
+		return { pageTops, zoom };
+	}
 
 	const GAP = 16;
 
@@ -152,6 +167,7 @@
 			else break;
 		}
 		visiblePage = page;
+		onuserscroll?.();
 		if (pages.length <= VIRTUALISE_ABOVE) return;
 		clearTimeout(scrollTimer);
 		scrollTimer = setTimeout(() => void fillNeighbourhood(page), 120);

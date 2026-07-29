@@ -1,5 +1,5 @@
 import pdfMakeModule from 'pdfmake/build/pdfmake';
-import { buildDocDefinition } from './buildDocDefinition';
+import { buildDocDefinition, type Anchor } from './buildDocDefinition';
 import { buildLayouts } from './layouts';
 import type { CustomTableLayout, DocDefinition, FontDictionary, Vfs } from './pdfmake-types';
 import type { RenderRequest } from '../workers/protocol';
@@ -32,6 +32,8 @@ export interface GenerateResult {
 	buffer: ArrayBuffer;
 	pageCount: number;
 	warnings: string[];
+	/** Source line → page and offset, for scroll sync. Sorted by line. */
+	anchors: Anchor[];
 }
 
 /**
@@ -40,7 +42,7 @@ export interface GenerateResult {
  * so consecutive renders cannot bleed fonts into one another (§7.5).
  */
 export function generate(req: RenderRequest): Promise<GenerateResult> {
-	const { docDefinition, warnings } = buildDocDefinition({
+	const { docDefinition, warnings, anchors } = buildDocDefinition({
 		tokens: req.tokens,
 		theme: req.theme,
 		meta: req.meta,
@@ -61,7 +63,12 @@ export function generate(req: RenderRequest): Promise<GenerateResult> {
 					const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
 					const copy = new ArrayBuffer(bytes.byteLength);
 					new Uint8Array(copy).set(bytes);
-					resolve({ buffer: copy, pageCount: pages?.length ?? 0, warnings });
+					resolve({
+						buffer: copy,
+						pageCount: pages?.length ?? 0,
+						warnings,
+						anchors: [...anchors.values()].sort((a, b) => a.line - b.line)
+					});
 				});
 			});
 		} catch (e) {

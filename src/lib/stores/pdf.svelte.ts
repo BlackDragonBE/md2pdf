@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { charsetKey, documentCharset } from '../fonts/charset';
+import type { Anchor } from '../pdf/buildDocDefinition';
 import { resolveFonts } from '../fonts/resolve';
 import { buildVfs } from '../fonts/register';
 import { EMPTY_META, type DocMeta } from '../markdown/frontmatter';
@@ -36,6 +37,8 @@ class PdfStore {
 	/** Retained across `generating` so the preview never blanks (§8). */
 	buffer = $state<ArrayBuffer | null>(null);
 	pageCount = $state(0);
+	/** Source line → page and offset in the finished PDF, for scroll sync. */
+	anchors = $state<Anchor[]>([]);
 	/**
 	 * Metadata as the renderer actually resolved it — front matter first, then
 	 * the panel overrides. The panel values alone are not enough: a document
@@ -140,6 +143,7 @@ class PdfStore {
 
 			this.buffer = response.buffer;
 			this.pageCount = response.pageCount;
+			this.anchors = response.anchors;
 			this.meta = parsed.meta;
 			const sizeWarning =
 				response.pageCount > SOFT_PAGE_LIMIT

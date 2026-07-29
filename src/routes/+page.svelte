@@ -11,6 +11,7 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { slugify } from '$lib/theme/io';
 	import { readJson, writeJson } from '$lib/stores/persist';
+	import { lineForPreviewOffset, previewOffsetForLine } from '$lib/preview/scrollSync';
 
 	let zoom = $state(1);
 
@@ -39,6 +40,61 @@
 	function toggleEditor() {
 		showEditor = !showEditor;
 		saveLayout();
+	}
+
+	/**
+	 * Scroll sync. Each pane reports its own scrolls; the other is driven from
+	 * the anchor map pdfmake produced, so the correspondence survives page
+	 * breaks and tall blocks that a scroll-fraction approach would smear.
+	 */
+	let syncScroll = $state(readJson<boolean>('md2pdf:syncScroll', true) !== false);
+	let editorRef = $state<Editor | null>(null);
+	let previewRef = $state<Preview | null>(null);
+
+	/**
+	 * Programmatic scrolling fires `scroll` too, so without a deadline the two
+	 * panes would drive each other in circles. A timestamp rather than a flag:
+	 * the echo arrives on a later task, not the next microtask.
+	 */
+	let syncMutedUntil = 0;
+	const SYNC_MUTE_MS = 150;
+
+	function muted(): boolean {
+		return performance.now() < syncMutedUntil;
+	}
+
+	function mute() {
+		syncMutedUntil = performance.now() + SYNC_MUTE_MS;
+	}
+
+	function syncFromEditor() {
+		if (!syncScroll || muted() || !editorRef || !previewRef) return;
+		const offset = previewOffsetForLine(
+			pdfStore.anchors,
+			editorRef.currentLine(),
+			previewRef.syncGeometry()
+		);
+		if (offset === null) return;
+		mute();
+		previewRef.scrollToOffset(offset);
+	}
+
+	function syncFromPreview() {
+		if (!syncScroll || muted() || !editorRef || !previewRef) return;
+		const line = lineForPreviewOffset(
+			pdfStore.anchors,
+			previewRef.scrollOffset(),
+			previewRef.syncGeometry()
+		);
+		if (line === null) return;
+		mute();
+		editorRef.scrollToLine(line);
+	}
+
+	function toggleSync() {
+		syncScroll = !syncScroll;
+		writeJson('md2pdf:syncScroll', syncScroll);
+		if (syncScroll) syncFromEditor();
 	}
 	/** Zoom at which the page exactly fills the preview pane. */
 	let fitZoom = $state(1);
@@ -150,6 +206,13 @@
 				<option value="dark">Dark</option>
 			</select>
 		</label>
+		<button
+			onclick={toggleSync}
+			aria-pressed={syncScroll}
+			title="Keep the editor and the preview scrolled to the same place"
+		>
+			Sync
+		</button>
 		<button onclick={toggleEditor} aria-pressed={showEditor} title="Show or hide the Markdown editor">
 			{showEditor ? 'Hide editor' : 'Show editor'}
 		</button>
@@ -194,9 +257,11 @@
 						<MetaPanel meta={docStore.meta} onchange={(patch) => docStore.setMeta(patch)} />
 					{/if}
 					<Editor
+						bind:this={editorRef}
 						value={docStore.source}
 						oninput={(v) => docStore.setSource(v)}
 						onnotice={(message) => (notice = message)}
+						onuserscroll={syncFromEditor}
 					/>
 				</section>
 
@@ -209,9 +274,11 @@
 
 			<section class="preview-pane">
 				<Preview
+					bind:this={previewRef}
 					buffer={pdfStore.buffer}
 					{zoom}
 					busy={pdfStore.state === 'generating'}
+					onuserscroll={syncFromPreview}
 					onfit={(ratio) => {
 						fitZoom = Math.min(2, Math.max(0.4, Math.round(ratio * 20) / 20));
 						if (!zoomIsUsers) zoom = fitZoom;

@@ -114,6 +114,13 @@ app comes up from the service worker, fonts from IndexedDB, and generates a
 - **Preview** opens at a zoom that fits the page to the pane; **Fit** returns to
   it after manual zooming. The preview is a focusable scroll region, so arrow
   keys, Page Up/Down, Home and End work once it has focus.
+- **Scroll sync** keeps both panes on the same content, in both directions. It
+  is driven by real anchors rather than scroll fraction — see below.
+- **Drag the divider** to resize the editor against the preview, or hide the
+  editor entirely so the PDF gets the whole pane. Both persist. The divider
+  takes focus and resizes with the arrow keys, Home and End.
+- **Appearance** follows light, dark or the system setting. App chrome only —
+  the PDF has its own theme.
 - **Scroll position survives re-renders**, including zoom changes — editing does
   not throw you back to page one.
 - **Paste an image** into the editor to embed it as a data URI. Relative image
@@ -122,9 +129,31 @@ app comes up from the service worker, fonts from IndexedDB, and generates a
   localStorage.
 - **Tab / Shift+Tab** indent and outdent without leaving the editor, and without
   discarding the browser's undo history.
-- **Ctrl/Cmd+S** downloads, **Ctrl/Cmd+Shift+B** toggles the theme panel.
+- **Ctrl/Cmd+S** downloads, **Ctrl/Cmd+Shift+B** toggles the theme panel,
+  **Ctrl/Cmd+Shift+E** collapses the editor.
 - Below 1100px the theme panel becomes an overlay; below 720px the editor and
   preview stack.
+
+## Scroll sync
+
+Both panes stay on the same content because the renderer reports where every
+block actually landed, rather than the two scrollbars being kept at the same
+percentage.
+
+Each Markdown block is tagged with the source line that produced it, and
+pdfmake's `pageBreakBefore` callback — the only hook that reports a node's final
+position — hands back the page and offset it settled at. That yields a
+line → (page, offset) map, which `scrollSync.ts` interpolates in both
+directions.
+
+The editor side needs the inverse: which source line sits at a given scroll
+offset in a soft-wrapped `<textarea>`. There is no per-line geometry API and
+`scrollTop / lineHeight` is wrong as soon as anything wraps, so `lineMetrics.ts`
+lays the same text out in a hidden mirror element with one child per line and
+measures it. The mirror is only built when sync asks for a mapping.
+
+Proportional sync drifts badly on documents with a long code block or a forced
+page break; anchors do not care. A test covers exactly that case.
 
 ## Verified unknowns
 

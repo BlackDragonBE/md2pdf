@@ -812,3 +812,104 @@ test.describe('editor pane layout', () => {
 		expect(Math.abs((await editorWidth(page)) - width)).toBeLessThan(12);
 	});
 });
+
+test.describe('scroll sync', () => {
+	/** Long enough that a source line maps somewhere well down the PDF. */
+	const DOC = Array.from(
+		{ length: 70 },
+		(_, i) => `## Section ${i}\n\n${'Body text for section ' + i + '. '.repeat(10)}`
+	).join('\n\n');
+
+	async function offsets(page: Page) {
+		return page.evaluate(() => ({
+			editor: document.querySelector('textarea.editor')!.scrollTop,
+			preview: document.querySelector('.viewport')!.scrollTop
+		}));
+	}
+
+	test('scrolling the editor moves the preview', async ({ page }) => {
+		await setSource(page, DOC);
+		await expect(page.locator('.page').first()).toBeVisible();
+
+		const before = await offsets(page);
+		await page.locator('textarea.editor').evaluate((el) => {
+			el.scrollTop = Math.round(el.scrollHeight * 0.6);
+			el.dispatchEvent(new Event('scroll'));
+		});
+
+		await expect.poll(async () => (await offsets(page)).preview).toBeGreaterThan(before.preview + 50);
+	});
+
+	test('scrolling the preview moves the editor', async ({ page }) => {
+		await setSource(page, DOC);
+		await expect(page.locator('.page').first()).toBeVisible();
+
+		const before = await offsets(page);
+		await page.locator('.viewport').evaluate((el) => {
+			el.scrollTop = Math.round(el.scrollHeight * 0.6);
+			el.dispatchEvent(new Event('scroll'));
+		});
+
+		await expect.poll(async () => (await offsets(page)).editor).toBeGreaterThan(before.editor + 50);
+	});
+
+	/** Each pane echoing the other would ratchet both to the bottom. */
+	test('the two panes do not chase each other', async ({ page }) => {
+		await setSource(page, DOC);
+		await page.locator('textarea.editor').evaluate((el) => {
+			el.scrollTop = Math.round(el.scrollHeight * 0.4);
+			el.dispatchEvent(new Event('scroll'));
+		});
+		await page.waitForTimeout(600);
+		const settledOnce = await offsets(page);
+
+		await page.waitForTimeout(900);
+		const later = await offsets(page);
+
+		expect(Math.abs(later.editor - settledOnce.editor)).toBeLessThan(8);
+		expect(Math.abs(later.preview - settledOnce.preview)).toBeLessThan(8);
+	});
+
+	test('lands near the matching content, not merely proportionally', async ({ page }) => {
+		// A tall block early on makes proportional mapping wrong; anchors do not care.
+		const source = [
+			'# Top',
+			'',
+			'```',
+			...Array.from({ length: 80 }, (_, i) => `code line ${i}`),
+			'```',
+			'',
+			...Array.from({ length: 30 }, (_, i) => `## Heading ${i}\n\ntext ${i}`)
+		].join('\n');
+		await setSource(page, source);
+
+		// Scroll the editor to the very end.
+		await page.locator('textarea.editor').evaluate((el) => {
+			el.scrollTop = el.scrollHeight;
+			el.dispatchEvent(new Event('scroll'));
+		});
+		await page.waitForTimeout(700);
+
+		const preview = await metrics(page, '.viewport');
+		const fraction = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
+		expect(fraction).toBeGreaterThan(0.6);
+	});
+
+	test('can be turned off', async ({ page }) => {
+		await setSource(page, DOC);
+		await page.getByRole('button', { name: 'Sync' }).click();
+		await expect(page.getByRole('button', { name: 'Sync' })).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		);
+
+		const before = await offsets(page);
+		await page.locator('textarea.editor').evaluate((el) => {
+			el.scrollTop = Math.round(el.scrollHeight * 0.7);
+			el.dispatchEvent(new Event('scroll'));
+		});
+		await page.waitForTimeout(600);
+
+		expect((await offsets(page)).preview).toBe(before.preview);
+	});
+});
