@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { resolveFonts } from '../fonts/resolve';
 import { buildVfs } from '../fonts/register';
-import type { DocMeta } from '../markdown/frontmatter';
+import { EMPTY_META, type DocMeta } from '../markdown/frontmatter';
 import { parse } from '../markdown/parse';
 import { collectImageSources, resolveImages } from '../pdf/images';
 import type { FontDictionary, Vfs } from '../pdf/pdfmake-types';
@@ -35,6 +35,12 @@ class PdfStore {
 	/** Retained across `generating` so the preview never blanks (§8). */
 	buffer = $state<ArrayBuffer | null>(null);
 	pageCount = $state(0);
+	/**
+	 * Metadata as the renderer actually resolved it — front matter first, then
+	 * the panel overrides. The panel values alone are not enough: a document
+	 * titled in its front matter downloaded as the *theme* name.
+	 */
+	meta = $state<DocMeta>({ ...EMPTY_META });
 	/**
 	 * Id of the most recently *committed* render. Surfaced in the DOM so tests
 	 * can wait for a specific render rather than guessing at the debounce.
@@ -131,6 +137,7 @@ class PdfStore {
 
 			this.buffer = response.buffer;
 			this.pageCount = response.pageCount;
+			this.meta = parsed.meta;
 			const sizeWarning =
 				response.pageCount > SOFT_PAGE_LIMIT
 					? [

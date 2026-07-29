@@ -10,17 +10,38 @@
 
 	const LABELS = ['left', 'top', 'right', 'bottom'];
 
-	function set(i: number, raw: string) {
-		const n = Number(raw);
-		if (!Number.isFinite(n)) return;
+	/** Per-field draft; see NumberInput for why an uncontrolled buffer is needed. */
+	let drafts = $state<(string | null)[]>([null, null, null, null]);
+	const shown = $derived(value.map((v, i) => drafts[i] ?? String(v)));
+
+	function publish(i: number, n: number) {
 		const next = [...value] as Quad;
-		next[i] = Math.max(min, n);
+		next[i] = n;
 		onchange(next);
+	}
+
+	function typing(i: number, raw: string) {
+		drafts[i] = raw;
+		const n = Number(raw);
+		if (raw.trim() === '' || !Number.isFinite(n) || n < min) return;
+		publish(i, n);
+	}
+
+	function settle(i: number, el: HTMLInputElement) {
+		const n = Number(el.value);
+		drafts[i] = null;
+		if (el.value.trim() === '' || !Number.isFinite(n)) {
+			el.value = String(value[i]);
+			return;
+		}
+		const clamped = Math.max(min, n);
+		el.value = String(clamped);
+		if (clamped !== value[i]) publish(i, clamped);
 	}
 </script>
 
 <div class="quad">
-	{#each value as v, i (i)}
+	{#each shown as v, i (i)}
 		<input
 			type="number"
 			step="1"
@@ -28,7 +49,9 @@
 			value={v}
 			title={LABELS[i]}
 			aria-label={LABELS[i]}
-			oninput={(e) => set(i, e.currentTarget.value)}
+			oninput={(e) => typing(i, e.currentTarget.value)}
+			onchange={(e) => settle(i, e.currentTarget)}
+			onblur={(e) => settle(i, e.currentTarget)}
 		/>
 	{/each}
 </div>

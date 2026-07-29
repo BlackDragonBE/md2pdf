@@ -35,7 +35,8 @@
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `${slugify(docStore.meta.title || themeStore.current.name)}.pdf`;
+		// Front matter first, then the metadata panel, then the theme name.
+		a.download = `${slugify(pdfStore.meta.title || docStore.meta.title || themeStore.current.name)}.pdf`;
 		a.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}

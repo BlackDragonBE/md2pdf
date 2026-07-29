@@ -1,13 +1,20 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	interface Props {
 		title: string;
 		open?: boolean;
 		children: import('svelte').Snippet;
 	}
 	let { title, open = false, children }: Props = $props();
+
+	/**
+	 * Initial value only — see ElementStyleEditor. Re-applying the prop on a
+	 * re-render collapses the section the user is working in and drops focus.
+	 */
+	let expanded = $state(untrack(() => open));
 </script>
 
-<details {open}>
+<details open={expanded} ontoggle={(e) => (expanded = e.currentTarget.open)}>
 	<summary>{title}</summary>
 	<div class="body">{@render children()}</div>
 </details>

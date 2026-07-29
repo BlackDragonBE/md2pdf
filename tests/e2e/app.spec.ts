@@ -425,6 +425,113 @@ test.describe('scrolling', () => {
 	});
 });
 
+test.describe('editor', () => {
+	test('Tab indents and Shift+Tab outdents without leaving the field', async ({ page }) => {
+		const editor = page.locator('textarea.editor');
+		await editor.fill('alpha');
+		await editor.click();
+		await page.keyboard.press('Home');
+		await page.keyboard.press('Tab');
+		await expect(editor).toHaveValue('\talpha');
+		await expect(editor).toBeFocused();
+
+		await page.keyboard.press('Shift+Tab');
+		await expect(editor).toHaveValue('alpha');
+		await expect(editor).toBeFocused();
+	});
+
+	/** Rewriting the whole textarea value discards the browser's undo stack. */
+	test('Tab does not destroy the undo history', async ({ page }) => {
+		const editor = page.locator('textarea.editor');
+		await editor.fill('');
+		await editor.click();
+		await page.keyboard.type('hello');
+		await page.keyboard.press('Tab');
+		await expect(editor).toHaveValue('hello\t');
+
+		await page.keyboard.press('ControlOrMeta+z'); // undo the tab
+		await page.keyboard.press('ControlOrMeta+z'); // undo the typing
+		// Whatever the browser's undo granularity, it must be able to step back
+		// past the Tab rather than being stuck at "hello\t".
+		await expect(editor).not.toHaveValue('hello\t');
+	});
+});
+
+test('the download filename follows the document title', async ({ page }) => {
+	await setSource(page, '---\ntitle: Quarterly Report\n---\n\n# Body\n\ntext');
+	const [withTitle] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: 'Download PDF' }).click()
+	]);
+	expect(withTitle.suggestedFilename()).toBe('quarterly-report.pdf');
+
+	await setSource(page, '# No front matter\n\njust text');
+	const [withoutTitle] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: 'Download PDF' }).click()
+	]);
+	expect(withoutTitle.suggestedFilename()).toMatch(/\.pdf$/);
+});
+
+test.describe('theme number fields', () => {
+	/**
+	 * Clamping on every keystroke made low numbers impossible to enter: in a
+	 * field with min 4, typing "12" clamped the "1" to "4" and appended the "2".
+	 */
+	test('accept a value below the minimum while it is still being typed', async ({ page }) => {
+		const elements = await openSection(page, 'Elements');
+		const heading = elements.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) }).first();
+		if (!(await heading.evaluate((el) => (el as HTMLDetailsElement).open))) {
+			await heading.locator('summary').click();
+		}
+
+		const size = heading.locator('input[type=number]').first();
+		await size.click();
+		await size.press('ControlOrMeta+a');
+		await size.pressSequentially('12');
+		await expect(size).toHaveValue('12');
+
+		await size.blur();
+		await expect(size).toHaveValue('12');
+	});
+
+	/**
+	 * Editing a value re-renders the component, and re-applying `open={false}`
+	 * collapsed the very panel being edited — silently taking focus with it, with
+	 * no blur event, so every keystroke after the first went nowhere.
+	 */
+	test('keep the panel open and the field focused while typing', async ({ page }) => {
+		const elements = await openSection(page, 'Elements');
+		const heading = elements.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) }).first();
+		if (!(await heading.evaluate((el) => (el as HTMLDetailsElement).open))) {
+			await heading.locator('summary').click();
+		}
+
+		const size = heading.locator('input[type=number]').first();
+		await size.click();
+		await size.press('ControlOrMeta+a');
+		await size.pressSequentially('31');
+
+		await expect(heading).toHaveAttribute('open', '');
+		await expect(size).toBeFocused();
+		await expect(size).toHaveValue('31');
+	});
+
+	test('clamp an out-of-range value once it settles', async ({ page }) => {
+		const elements = await openSection(page, 'Elements');
+		const heading = elements.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) }).first();
+		if (!(await heading.evaluate((el) => (el as HTMLDetailsElement).open))) {
+			await heading.locator('summary').click();
+		}
+		const size = heading.locator('input[type=number]').first();
+		await size.click();
+		await size.press('ControlOrMeta+a');
+		await size.pressSequentially('999');
+		await size.blur();
+		await expect(size).toHaveValue('96');
+	});
+});
+
 test('installs as a PWA and precaches the app shell', async ({ page }) => {
 	// The manifest link has to be in the prerendered HTML: `ssr = false` means a
 	// <svelte:head> link would never reach the document an installer reads.

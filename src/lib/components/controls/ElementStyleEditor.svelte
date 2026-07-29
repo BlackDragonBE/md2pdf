@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { ElementStyleT } from '$lib/theme/schema';
 	import ColorInput from './ColorInput.svelte';
 	import Field from './Field.svelte';
@@ -12,9 +13,20 @@
 		onchange: (patch: Partial<ElementStyleT>) => void;
 	}
 	let { label, style, open = false, onchange }: Props = $props();
+
+	/**
+	 * `open` is an initial value, tracked locally from here on.
+	 *
+	 * Binding the prop straight to the attribute made Svelte re-apply
+	 * `open={false}` on every re-render — and this component re-renders on every
+	 * theme edit, so the panel you were editing snapped shut on each keystroke
+	 * and silently took the focus with it. No blur fires when that happens, so
+	 * the field simply stopped receiving input.
+	 */
+	let expanded = $state(untrack(() => open));
 </script>
 
-<details {open}>
+<details open={expanded} ontoggle={(e) => (expanded = e.currentTarget.open)}>
 	<summary>
 		<span>{label}</span>
 		<span class="preview" style="font-size:{Math.min(15, style.size)}px;color:{style.color}">
