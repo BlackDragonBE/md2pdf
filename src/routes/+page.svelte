@@ -51,44 +51,30 @@
 	let editorRef = $state<Editor | null>(null);
 	let previewRef = $state<Preview | null>(null);
 
-	/**
-	 * Programmatic scrolling fires `scroll` too, so without a deadline the two
-	 * panes would drive each other in circles. A timestamp rather than a flag:
-	 * the echo arrives on a later task, not the next microtask.
+	/*
+	 * No debounce or mute window here on purpose. Each pane already declines to
+	 * report the scrolls it performs itself, so a sync cannot echo back — and a
+	 * mute window at this level would drop a genuine scroll of the other pane
+	 * that happened to arrive right after one, which reads as the sync sticking.
 	 */
-	let syncMutedUntil = 0;
-	const SYNC_MUTE_MS = 150;
-
-	function muted(): boolean {
-		return performance.now() < syncMutedUntil;
-	}
-
-	function mute() {
-		syncMutedUntil = performance.now() + SYNC_MUTE_MS;
-	}
-
 	function syncFromEditor() {
-		if (!syncScroll || muted() || !editorRef || !previewRef) return;
+		if (!syncScroll || !editorRef || !previewRef) return;
 		const offset = previewOffsetForLine(
 			pdfStore.anchors,
 			editorRef.currentLine(),
 			previewRef.syncGeometry()
 		);
-		if (offset === null) return;
-		mute();
-		previewRef.scrollToOffset(offset);
+		if (offset !== null) previewRef.scrollToOffset(offset);
 	}
 
 	function syncFromPreview() {
-		if (!syncScroll || muted() || !editorRef || !previewRef) return;
+		if (!syncScroll || !editorRef || !previewRef) return;
 		const line = lineForPreviewOffset(
 			pdfStore.anchors,
 			previewRef.scrollOffset(),
 			previewRef.syncGeometry()
 		);
-		if (line === null) return;
-		mute();
-		editorRef.scrollToLine(line);
+		if (line !== null) editorRef.scrollToLine(line);
 	}
 
 	function toggleSync() {

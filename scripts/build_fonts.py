@@ -28,6 +28,7 @@ What it does per face:
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -239,6 +240,8 @@ def build() -> None:
             "license": licence,
             "url": f"https://github.com/google/fonts/tree/main/{directory}",
             "files": files,
+            # Filled in after grafting, once the bytes are final.
+            "version": "",
         }
 
     print("\nGrafting missing symbols")
@@ -253,6 +256,16 @@ def build() -> None:
         if grafted:
             unique = sorted(set(grafted))
             print(f"  {font_id:<18} +{len(unique)} per face: {' '.join(unique)}")
+
+    # Content version per family, so a rebuild actually reaches people who have
+    # already visited. Both the IndexedDB key and the request URL carry it:
+    # keyed on the path alone, the browser keeps serving the previously cached
+    # bytes forever and a font fix silently never ships.
+    for font_id, entry in manifest.items():
+        digest = hashlib.sha256()
+        for face_name in ("Regular", "Bold", "Italic", "BoldItalic"):
+            digest.update((OUT / font_id / f"{face_name}.ttf").read_bytes())
+        entry["version"] = digest.hexdigest()[:8]
 
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 

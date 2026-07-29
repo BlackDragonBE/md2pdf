@@ -18,14 +18,27 @@
 	}
 	let { buffer, zoom, busy, onfit, onuserscroll }: Props = $props();
 
+	/**
+	 * Scrolls this component performs itself must not be reported as the reader
+	 * scrolling. Restoring the position after a re-render fires `scroll` like any
+	 * other change, and treating that as user intent made every re-render tug the
+	 * editor along and swallow the reader's next scroll.
+	 */
+	let programmaticUntil = 0;
+
+	function scrollWithoutReporting(top: number) {
+		if (!container) return;
+		programmaticUntil = performance.now() + 200;
+		container.scrollTop = top;
+	}
+
 	/** Scroll-sync surface, driven from the page. */
 	export function scrollOffset(): number {
 		return container?.scrollTop ?? 0;
 	}
 	export function scrollToOffset(offset: number): void {
-		if (!container) return;
 		// Keep the anchored line a little below the top edge, as a reader expects.
-		container.scrollTop = Math.max(0, offset - 24);
+		scrollWithoutReporting(Math.max(0, offset - 24));
 	}
 	export function syncGeometry(): { pageTops: number[]; zoom: number } {
 		return { pageTops, zoom };
@@ -127,6 +140,7 @@
 
 		if (anchor && container) {
 			await Promise.resolve();
+			programmaticUntil = performance.now() + 200;
 			restore(container, anchor, pageTopsFor(geometry));
 		}
 	}
@@ -167,7 +181,7 @@
 			else break;
 		}
 		visiblePage = page;
-		onuserscroll?.();
+		if (performance.now() >= programmaticUntil) onuserscroll?.();
 		if (pages.length <= VIRTUALISE_ABOVE) return;
 		clearTimeout(scrollTimer);
 		scrollTimer = setTimeout(() => void fillNeighbourhood(page), 120);

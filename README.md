@@ -47,6 +47,15 @@ Twelve families are bundled, subsetted, as **static** instances — four real
 faces each, 3.4 MB in total. They are fetched lazily and cached in IndexedDB, so
 a second visit fetches zero font bytes.
 
+Each family carries a content hash in `manifest.json`, and that version is part
+of both the IndexedDB key and the request URL. Font files keep their names
+across rebuilds, so without it nothing about the URL or the key changes when the
+bytes do: a rebuilt font is never re-fetched by anyone who has already visited,
+and the service worker's CacheFirst rule serves the old bytes underneath that.
+Adding the box-drawing glyphs shipped and changed nothing for existing users for
+exactly this reason. `tests/unit/fontVersioning.test.ts` asserts the versions
+track the bytes.
+
 Building them is a one-time manual step whose outputs are committed; CI has no
 Python dependency. The procedure, and why each step exists, is in
 [scripts/subset-fonts.md](scripts/subset-fonts.md). Two details worth knowing

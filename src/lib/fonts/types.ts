@@ -18,6 +18,8 @@ export interface BuiltinFontEntry {
 	license: string;
 	url?: string;
 	files: Record<FaceKey, string>;
+	/** Hash of the family's four faces; see loadFace for why it matters. */
+	version: string;
 }
 
 export type BuiltinFontManifest = Record<string, BuiltinFontEntry>;

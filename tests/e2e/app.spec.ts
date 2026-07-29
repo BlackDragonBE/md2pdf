@@ -840,17 +840,33 @@ test.describe('scroll sync', () => {
 		await expect.poll(async () => (await offsets(page)).preview).toBeGreaterThan(before.preview + 50);
 	});
 
-	test('scrolling the preview moves the editor', async ({ page }) => {
+	/** Fraction of the editor's scrollable range, so the assertion is positional. */
+	async function editorFraction(page: Page) {
+		return page.locator('textarea.editor').evaluate((el) => {
+			const range = el.scrollHeight - el.clientHeight;
+			return range <= 0 ? 0 : el.scrollTop / range;
+		});
+	}
+
+	async function scrollPreviewTo(page: Page, fraction: number) {
+		await page.locator('.viewport').evaluate((el, f) => {
+			el.scrollTop = Math.round((el.scrollHeight - el.clientHeight) * f);
+			el.dispatchEvent(new Event('scroll'));
+		}, fraction);
+	}
+
+	test('scrolling the preview moves the editor to matching content', async ({ page }) => {
 		await setSource(page, DOC);
 		await expect(page.locator('.page').first()).toBeVisible();
 
-		const before = await offsets(page);
-		await page.locator('.viewport').evaluate((el) => {
-			el.scrollTop = Math.round(el.scrollHeight * 0.6);
-			el.dispatchEvent(new Event('scroll'));
-		});
+		// Driving the preview to each end must take the editor to the same end.
+		// `fill` leaves the textarea at the bottom, so asserting "it increased"
+		// would depend on where the previous action happened to leave it.
+		await scrollPreviewTo(page, 0);
+		await expect.poll(() => editorFraction(page)).toBeLessThan(0.2);
 
-		await expect.poll(async () => (await offsets(page)).editor).toBeGreaterThan(before.editor + 50);
+		await scrollPreviewTo(page, 1);
+		await expect.poll(() => editorFraction(page)).toBeGreaterThan(0.7);
 	});
 
 	/** Each pane echoing the other would ratchet both to the bottom. */
@@ -912,4 +928,97 @@ test.describe('scroll sync', () => {
 
 		expect((await offsets(page)).preview).toBe(before.preview);
 	});
+});
+
+test.describe('font cache invalidation', () => {
+	/**
+	 * The exact failure this guards: a previously cached font kept being used
+	 * after the bundled files were rebuilt, so glyphs added to them never
+	 * appeared for anyone who had already loaded the app.
+	 */
+	test('a stale cached face is replaced rather than reused', async ({ page }) => {
+		// Plant a bogus entry under the pre-versioning key *and* under a wrong
+		// version, then confirm neither is used.
+		await page.evaluate(async () => {
+			const db = await new Promise<IDBDatabase>((resolve, reject) => {
+				const request = indexedDB.open('md2pdf');
+				request.onsuccess = () => resolve(request.result);
+				request.onerror = () => reject(request.error);
+			});
+			const store = db.transaction('fonts', 'readwrite').objectStore('fonts');
+			store.put(new ArrayBuffer(8), 'builtin:jetbrains-mono:normal');
+			store.put(new ArrayBuffer(8), 'builtin:jetbrains-mono:normal:deadbeef');
+			await new Promise((r) => setTimeout(r, 100));
+			db.close();
+		});
+
+		await page.reload();
+		await settled(page);
+
+		const keys = await page.evaluate(async () => {
+			const db = await new Promise<IDBDatabase>((resolve, reject) => {
+				const request = indexedDB.open('md2pdf');
+				request.onsuccess = () => resolve(request.result);
+				request.onerror = () => reject(request.error);
+			});
+			const store = db.transaction('fonts', 'readonly').objectStore('fonts');
+			const all = await new Promise<IDBValidKey[]>((r) => {
+				const q = store.getAllKeys();
+				q.onsuccess = () => r(q.result);
+			});
+			db.close();
+			return all.map(String);
+		});
+
+		// The unversioned and wrong-version entries are gone; a versioned one remains.
+		expect(keys).not.toContain('builtin:jetbrains-mono:normal');
+		expect(keys).not.toContain('builtin:jetbrains-mono:normal:deadbeef');
+		expect(keys.some((k) => /^builtin:jetbrains-mono:normal:[0-9a-f]{8}$/.test(k))).toBe(true);
+	});
+
+	test('box-drawing characters survive into the PDF', async ({ page }) => {
+		await setSource(
+			page,
+			['# Tree', '', '```', 'md2pdf/', '├── scripts/', '│   └── subset-fonts.md', '└── src/', '```'].join(
+				'\n'
+			)
+		);
+
+		const pdf = await readPdf(await download(page));
+		expect(pdf.pages[0]).toContain('├──');
+		expect(pdf.pages[0]).toContain('└──');
+		expect(pdf.pages[0]).toContain('│');
+	});
+});
+
+/**
+ * A re-render restores the preview's scroll position, which fires `scroll`.
+ * Treating that as the reader scrolling made every keystroke tug the editor
+ * along and swallow the next real scroll.
+ */
+test('re-rendering does not drag the editor along', async ({ page }) => {
+	await setSource(
+		page,
+		Array.from({ length: 70 }, (_, i) => `## Section ${i}\n\ntext ${i}`).join('\n\n')
+	);
+
+	await page.locator('textarea.editor').evaluate((el) => {
+		el.scrollTop = Math.round(el.scrollHeight * 0.5);
+		el.dispatchEvent(new Event('scroll'));
+	});
+	await page.waitForTimeout(700);
+	const before = await page.locator('textarea.editor').evaluate((el) => el.scrollTop);
+
+	// Type, forcing a full re-render and a scroll restoration in the preview.
+	await afterRender(page, async () => {
+		await page.locator('textarea.editor').evaluate((el) => {
+			const field = el as HTMLTextAreaElement;
+			field.value += '\n\nappended';
+			field.dispatchEvent(new Event('input', { bubbles: true }));
+		});
+	});
+	await page.waitForTimeout(700);
+
+	const after = await page.locator('textarea.editor').evaluate((el) => el.scrollTop);
+	expect(Math.abs(after - before)).toBeLessThan(40);
 });

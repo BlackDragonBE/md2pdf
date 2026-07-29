@@ -29,8 +29,12 @@
 	export function scrollToLine(line: number): void {
 		if (!textarea) return;
 		metrics.measure(textarea, value);
+		// Same rule as the preview: our own scroll is not the reader's.
+		programmaticUntil = performance.now() + 200;
 		textarea.scrollTop = Math.max(0, metrics.offsetOf(line));
 	}
+
+	let programmaticUntil = 0;
 
 	/**
 	 * A pasted image is inlined into the Markdown as a data URI, and the document
@@ -119,7 +123,7 @@
 
 <textarea
 	bind:this={textarea}
-	onscroll={() => onuserscroll?.()}
+	onscroll={() => performance.now() >= programmaticUntil && onuserscroll?.()}
 	class="editor"
 	spellcheck="false"
 	aria-label="Markdown source"

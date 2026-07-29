@@ -50,6 +50,17 @@ export function putFont(key: string, buffer: ArrayBuffer): Promise<void> {
 	}, undefined);
 }
 
+/** Font cache keys, for pruning superseded versions. */
+export function listFontKeys(): Promise<string[]> {
+	return safe(async (d) => (await d.getAllKeys(STORE_FONTS)).map(String), []);
+}
+
+export function deleteFont(key: string): Promise<void> {
+	return safe(async (d) => {
+		await d.delete(STORE_FONTS, key);
+	}, undefined);
+}
+
 export function getUpload(hash: string): Promise<UploadRecord | undefined> {
 	return safe((d) => d.get(STORE_UPLOADS, hash), undefined);
 }
