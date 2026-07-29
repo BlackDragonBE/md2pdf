@@ -80,10 +80,34 @@ a `.mdtheme` ZIP instead.
 
 ## Deployment
 
+Live at **https://blackdragonbe.github.io/md2pdf/**.
+
 `.github/workflows/deploy.yml` builds with `BASE_PATH=/<repo>` and publishes to
-GitHub Pages. Every runtime asset URL goes through `base` from `$app/paths`;
-without that, fonts and presets 404 on a project site. `static/.nojekyll` is
-committed and `appDir` is `internal`, because Jekyll ignores `_app`.
+GitHub Pages; Pages must be set to **Source: GitHub Actions** or the deploy step
+404s. Every runtime asset URL goes through `base` from `$app/paths`; without
+that, fonts and presets 404 on a project site. `static/.nojekyll` is committed
+and `appDir` is `internal`, because Jekyll ignores `_app`.
+
+### The service worker on a project site
+
+Two things had to be corrected before the PWA worked under `/<repo>/`, both in
+`build-config/precacheTransform.ts`:
+
+- **@vite-pwa/sveltekit derives its precache prefix from Vite's `base`**, which
+  SvelteKit leaves at `/` while serving the app from `paths.base`. The app shell
+  was precached as the root-absolute `/`, and since `navigateFallback` binds to
+  that URL, the worker answered *every* in-scope navigation with whatever lives
+  at the domain root. Verified live: the app loaded once and was then replaced by
+  the server's directory index. Precache URLs are now scope-relative, so one
+  build is correct at `/` and at `/<repo>/`.
+- **The webmanifest was contributed twice** with different revisions, which
+  workbox rejects — the worker registered and its precache silently never
+  populated, so the app looked installed but had nothing cached.
+
+Both are covered by `tests/unit/precacheTransform.test.ts` and two E2E tests.
+Offline operation was confirmed by killing the static server and reloading: the
+app comes up from the service worker, fonts from IndexedDB, and generates a
+37-page PDF with no network at all.
 
 ## Verified unknowns
 

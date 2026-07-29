@@ -1,12 +1,18 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig } from 'vite';
+import { transformPrecacheManifest } from './build-config/precacheTransform';
 
 export default defineConfig({
 	plugins: [
 		sveltekit(),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
+			// SvelteKit owns app.html, so nothing auto-injects the manifest link or
+			// the registration script — without this being explicit, the generated
+			// sw.js and manifest.webmanifest ship but are never referenced, and the
+			// app silently is not a PWA. Both are wired up in +layout.svelte.
+			injectRegister: null,
 			manifest: {
 				name: 'md2pdf',
 				short_name: 'md2pdf',
@@ -27,8 +33,17 @@ export default defineConfig({
 			},
 			workbox: {
 				// App shell + the default family only. The other eleven are lazy-fetched (§11).
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}', '**/fonts/manifest.json'],
+				// `webmanifest` is deliberately absent: the plugin adds its own entry
+				// for it, and globbing it too yields two entries for the same URL with
+				// different revisions, which makes workbox refuse to install.
+				globPatterns: ['**/*.{js,css,html,ico,png,svg}', '**/fonts/manifest.json'],
 				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+				// See build-config/precacheTransform.ts for why this is necessary.
+				manifestTransforms: [(entries) => transformPrecacheManifest(entries)],
+				// Relative, so it resolves against the worker's scope, not the origin.
+				navigateFallback: 'index.html',
+				// Never hand the HTML shell to a request for an actual file.
+				navigateFallbackDenylist: [/\.[a-z0-9]+$/i],
 				runtimeCaching: [
 					{
 						urlPattern: /\/fonts\/inter\/.*\.ttf$/,

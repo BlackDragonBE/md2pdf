@@ -247,6 +247,66 @@ test('reloading restores the document and fetches no font bytes', async ({ page 
 	expect(ttfRequests).toBe(0);
 });
 
+test('installs as a PWA and precaches the app shell', async ({ page }) => {
+	// The manifest link has to be in the prerendered HTML: `ssr = false` means a
+	// <svelte:head> link would never reach the document an installer reads.
+	const manifestHref = await page.locator('link[rel=manifest]').getAttribute('href');
+	expect(manifestHref).toBeTruthy();
+
+	const manifest = await page.evaluate(async () => {
+		const href = document.querySelector('link[rel=manifest]')!.getAttribute('href')!;
+		const res = await fetch(new URL(href, location.href));
+		return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+	});
+	expect(manifest.status).toBe(200);
+	expect(manifest.body.name).toBe('md2pdf');
+	expect(Array.isArray(manifest.body.icons)).toBe(true);
+
+	// A worker that registers but whose precache never populates looks installed
+	// and is not offline-capable — assert the cache actually filled.
+	const sw = await page.evaluate(async () => {
+		const registration = await navigator.serviceWorker.ready;
+		for (let i = 0; i < 40; i++) {
+			const names = await caches.keys();
+			const precache = names.find((n) => n.includes('precache'));
+			if (precache) {
+				const entries = await (await caches.open(precache)).keys();
+				if (entries.length > 0) {
+					return {
+						scope: registration.scope,
+						active: !!registration.active,
+						cached: entries.length,
+						cachedUrls: entries.map((r) => r.url)
+					};
+				}
+			}
+			await new Promise((r) => setTimeout(r, 250));
+		}
+		return { scope: registration.scope, active: !!registration.active, cached: 0, cachedUrls: [] };
+	});
+
+	expect(sw.active).toBe(true);
+	expect(sw.cached).toBeGreaterThan(10);
+	// The shell must be cached under the worker's own scope, not the domain root.
+	expect(sw.cachedUrls.every((url) => url.startsWith(sw.scope))).toBe(true);
+	// Cache keys carry a __WB_REVISION__ query, so compare on the path alone.
+	const paths = sw.cachedUrls.map((url) => new URL(url).pathname);
+	expect(paths).toContain(`${new URL(sw.scope).pathname}index.html`);
+});
+
+test('the service worker serves the app, not the domain root', async ({ page }) => {
+	await page.evaluate(async () => {
+		await navigator.serviceWorker.ready;
+	});
+	// Second load goes through the worker; a fallback bound to the wrong URL
+	// replaces the app with whatever lives at the site root.
+	await page.reload();
+	await settled(page);
+	await expect(page).toHaveTitle('md2pdf');
+	await expect(page.locator('.app')).toHaveCount(1);
+	await expect(page.locator('.page').first()).toBeVisible();
+});
+
 test('a fast typist never sees a stale preview', async ({ page }) => {
 	const editor = page.locator('textarea.editor');
 	await afterRender(page, async () => {

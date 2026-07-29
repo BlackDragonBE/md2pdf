@@ -6,6 +6,12 @@
 		<meta name="description" content="Markdown to themeable PDF, entirely in your browser." />
 		<meta name="theme-color" content="#1c1f26" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<!--
+			Declared here rather than injected from the layout: `ssr = false` means
+			the layout only ever renders client-side, so a <svelte:head> manifest
+			link would never reach the prerendered HTML that an installer reads.
+		-->
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<title>md2pdf</title>
 		%sveltekit.head%
 	</head>
