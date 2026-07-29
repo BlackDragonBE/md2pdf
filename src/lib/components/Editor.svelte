@@ -2,8 +2,56 @@
 	interface Props {
 		value: string;
 		oninput: (value: string) => void;
+		/** Surfaced to the user; currently only for a rejected image paste. */
+		onnotice?: (message: string) => void;
 	}
-	let { value, oninput }: Props = $props();
+	let { value, oninput, onnotice }: Props = $props();
+
+	/**
+	 * A pasted image is inlined into the Markdown as a data URI, and the document
+	 * is persisted to localStorage, which caps out around 5 MB. Base64 inflates
+	 * by about a third, so anything past this would cost the user their saved
+	 * document rather than just the image.
+	 */
+	const MAX_PASTED_IMAGE_BYTES = 2 * 1024 * 1024;
+
+	function readAsDataUri(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(String(reader.result));
+			reader.onerror = () => reject(reader.error ?? new Error('could not read the image'));
+			reader.readAsDataURL(file);
+		});
+	}
+
+	/**
+	 * Relative image paths cannot be resolved in a static app, so the renderer
+	 * tells the user to paste the image instead — this is what makes that
+	 * instruction true.
+	 */
+	async function onpaste(e: ClipboardEvent) {
+		const item = [...(e.clipboardData?.items ?? [])].find(
+			(i) => i.kind === 'file' && i.type.startsWith('image/')
+		);
+		const file = item?.getAsFile();
+		if (!file) return; // ordinary text paste; leave it alone
+
+		e.preventDefault();
+		if (file.size > MAX_PASTED_IMAGE_BYTES) {
+			onnotice?.(
+				`That image is ${(file.size / 1024 / 1024).toFixed(1)} MB. Images are embedded in the document, so paste something under 2 MB.`
+			);
+			return;
+		}
+
+		try {
+			const dataUri = await readAsDataUri(file);
+			const alt = file.name.replace(/\.[^.]+$/, '') || 'pasted image';
+			document.execCommand('insertText', false, `![${alt}](${dataUri})`);
+		} catch (error) {
+			onnotice?.(`Could not read the pasted image: ${(error as Error).message}`);
+		}
+	}
 
 	/** Leading whitespace on the line containing `index`. */
 	function lineIndent(text: string, index: number): { start: number; length: number } {
@@ -51,6 +99,7 @@
 	{value}
 	oninput={(e) => oninput(e.currentTarget.value)}
 	{onkeydown}
+	{onpaste}
 ></textarea>
 
 <style>

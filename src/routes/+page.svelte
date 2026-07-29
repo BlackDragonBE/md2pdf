@@ -10,6 +10,8 @@
 	import { slugify } from '$lib/theme/io';
 
 	let zoom = $state(1);
+	/** Transient editor notice, e.g. an image paste that was too large. */
+	let notice = $state<string | null>(null);
 	let showMeta = $state(false);
 	let showThemePanel = $state(true);
 	let firstRender = true;
@@ -58,7 +60,12 @@
 <div class="app" class:no-panel={!showThemePanel}>
 	<header>
 		<strong>md2pdf</strong>
-		<span class="state" data-state={pdfStore.state} data-render={pdfStore.completedId}>
+		<span
+			class="state"
+			data-state={pdfStore.state}
+			data-render={pdfStore.completedId}
+			aria-live="polite"
+		>
 			{pdfStore.state === 'generating'
 				? 'generating…'
 				: pdfStore.state === 'error'
@@ -87,6 +94,12 @@
 			documents.
 		</div>
 	{/if}
+	{#if notice}
+		<div class="banner warn">
+			{notice}
+			<button class="dismiss" onclick={() => (notice = null)} aria-label="Dismiss">×</button>
+		</div>
+	{/if}
 	{#if pdfStore.warnings.length}
 		<details class="banner warn">
 			<summary>{pdfStore.warnings.length} warning{pdfStore.warnings.length === 1 ? '' : 's'}</summary>
@@ -103,7 +116,11 @@
 			{#if showMeta}
 				<MetaPanel meta={docStore.meta} onchange={(patch) => docStore.setMeta(patch)} />
 			{/if}
-			<Editor value={docStore.source} oninput={(v) => docStore.setSource(v)} />
+			<Editor
+				value={docStore.source}
+				oninput={(v) => docStore.setSource(v)}
+				onnotice={(message) => (notice = message)}
+			/>
 		</section>
 
 		<section class="preview-pane">
@@ -197,6 +214,14 @@
 	}
 	.banner summary {
 		cursor: pointer;
+	}
+	.dismiss {
+		float: right;
+		padding: 0 6px;
+		line-height: 1.2;
+		background: transparent;
+		border-color: transparent;
+		color: inherit;
 	}
 	main {
 		flex: 1 1 auto;

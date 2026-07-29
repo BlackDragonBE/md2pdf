@@ -17,6 +17,7 @@
 
 <input
 	type="color"
+	aria-label="Colour picker"
 	value={toPicker(value)}
 	disabled={nullable && value === null}
 	oninput={(e) => onchange(e.currentTarget.value)}
@@ -24,6 +25,7 @@
 <input
 	type="text"
 	spellcheck="false"
+	aria-label="Colour hex value"
 	value={value ?? ''}
 	placeholder={nullable ? 'none' : '#000000'}
 	disabled={nullable && value === null}
@@ -37,6 +39,7 @@
 	<input
 		type="checkbox"
 		title="Enabled"
+		aria-label="Enable this colour"
 		checked={value !== null}
 		onchange={(e) => onchange(e.currentTarget.checked ? '#cccccc' : null)}
 	/>

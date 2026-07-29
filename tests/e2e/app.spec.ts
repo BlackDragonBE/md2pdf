@@ -608,3 +608,52 @@ test('a fast typist never sees a stale preview', async ({ page }) => {
 	expect(pdf.pages[0]).toContain('Draft 6');
 	expect(pdf.pageCount).toBe(7);
 });
+
+/**
+ * A broken image warns "paste the image to embed it instead", so pasting has to
+ * actually work — otherwise the app's own guidance is a dead end.
+ */
+test('pasting an image embeds it in the document', async ({ page }) => {
+	await setSource(page, '# Paste target\n\n');
+	const editor = page.locator('textarea.editor');
+	await editor.click();
+	await page.keyboard.press('ControlOrMeta+End');
+
+	await editor.evaluate((el) => {
+		// 1x1 red PNG, as a real File on a DataTransfer.
+		const bytes = Uint8Array.from(
+			atob(
+				'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+			),
+			(c) => c.charCodeAt(0)
+		);
+		const file = new File([bytes], 'dot.png', { type: 'image/png' });
+		const data = new DataTransfer();
+		data.items.add(file);
+		el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+	});
+
+	await expect(editor).toHaveValue(/!\[dot\]\(data:image\/png;base64,/);
+
+	// And the pasted image must survive into the PDF rather than warn.
+	await expect(page.locator('.state')).not.toHaveText(/generating/, { timeout: 40_000 });
+	await expect(page.getByText('relative paths cannot be resolved')).toHaveCount(0);
+});
+
+test('theme fields are labelled for assistive technology', async ({ page }) => {
+	await openSection(page, 'Page');
+
+	// Every form control in the panel must have an accessible name.
+	const unnamed = await page.locator('.panel').evaluate((panel) => {
+		const controls = [...panel.querySelectorAll('input, select, textarea')];
+		return controls
+			.filter((control) => {
+				if (control.getAttribute('aria-label')) return false;
+				if (control.id && panel.querySelector(`label[for="${CSS.escape(control.id)}"]`)) return false;
+				if (control.closest('label')) return false;
+				return true;
+			})
+			.map((control) => `${control.tagName.toLowerCase()}[${control.getAttribute('type') ?? ''}]`);
+	});
+	expect(unnamed).toEqual([]);
+});

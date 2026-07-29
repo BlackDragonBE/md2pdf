@@ -68,6 +68,7 @@
 	<div class="head">
 		<strong>{label}</strong>
 		<select
+			aria-label="{label} font source"
 			value={kind}
 			onchange={(e) => {
 				const next = e.currentTarget.value;

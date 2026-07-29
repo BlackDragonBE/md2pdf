@@ -414,6 +414,7 @@
 				<div class="block">
 					<div class="block-head">
 						<select
+							aria-label="Cover block {i + 1} content"
 							value={block.field}
 							onchange={(e) =>
 								edit(
@@ -428,6 +429,7 @@
 						</select>
 						<button
 							title="Remove this block"
+							aria-label="Remove cover block {i + 1}"
 							onclick={() => edit((d) => d.cover.blocks.splice(i, 1))}>×</button
 						>
 					</div>
