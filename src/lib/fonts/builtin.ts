@@ -92,12 +92,21 @@ export async function loadBuiltinFaces(
 	if (!entry) throw new Error(`Unknown built-in font "${id}".`);
 
 	const partial: Partial<FaceBuffers> = {};
+	// Faces are deduplicated by path, not by face key: the emoji family points
+	// all four at one file, and fetching and caching it four times would cost
+	// four downloads and four IndexedDB copies of the same 845 KB.
+	const byPath = new Map<string, Promise<ArrayBuffer>>();
 	await Promise.all(
 		FACE_KEYS.map(async (face) => {
 			const path = entry.files[face];
 			if (!path) return;
 			try {
-				partial[face] = await loadFace(id, face, path, entry.version);
+				let pending = byPath.get(path);
+				if (!pending) {
+					pending = loadFace(id, face, path, entry.version);
+					byPath.set(path, pending);
+				}
+				partial[face] = await pending;
 			} catch (e) {
 				warnings.push(`${entry.name} ${face}: ${e instanceof Error ? e.message : String(e)}`);
 			}

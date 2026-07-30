@@ -76,6 +76,8 @@ from pathlib import Path
 need = [0x2022, 0x25E6, 0x25AA, 0x2610, 0x2611, 0x2713, 0x00E9, 0x0161, 0x2014, 0x201C, 0x20AC]
 bad = []
 for d in sorted(p for p in Path('static/fonts').iterdir() if p.is_dir()):
+    if d.name == 'noto-emoji':
+        continue  # one face, no Latin — checked separately below
     for face in ['Regular', 'Bold', 'Italic', 'BoldItalic']:
         f = TTFont(d / f'{face}.ttf')
         missing = [hex(c) for c in need if c not in f.getBestCmap()]
@@ -98,3 +100,51 @@ cmap check proves the codepoint is mapped, not that the outline is sensible.
 3. Re-run the verification above.
 4. Confirm the licence is OFL-1.1 or Apache-2.0 and that the family has genuine
    bold and italic cuts. No synthesised faces.
+
+## The emoji family
+
+`noto-emoji` is a thirteenth family that is never a theme font slot. pdfmake
+binds one font per run of text and pdfkit has no glyph fallback, so an emoji in
+a Latin-subset family renders as a blank box and nothing warns about it. The
+renderer (`src/lib/pdf/emoji.ts`) cuts runs at emoji boundaries and points those
+pieces here instead.
+
+It differs from the twelve in three ways, all deliberate:
+
+- **One face, aliased four ways.** A bold emoji is not worth another 845 KB, so
+  `manifest.json` points all four face keys at `noto-emoji/Regular.ttf` and
+  `loadBuiltinFaces` deduplicates by path so it is fetched and cached once.
+- **`category: "emoji"`.** Not a typeface classification — it is the flag the
+  font picker filters on. Selecting this family as a body font would render an
+  entire document as blank boxes.
+- **The whole cmap is kept, along with `ccmp`/`liga`/`rlig`.** Those lookups are
+  what make a ZWJ family, a skin-toned hand, a flag pair and a keycap each come
+  out as one glyph. Drop them and `👨‍👩‍👧` renders as three separate people.
+
+Upstream is the *monochrome* Noto Emoji. pdfkit embeds `glyf` outlines and
+cannot render the colour (CBDT) build, so emoji take the fill colour of the text
+around them.
+
+Rebuild it on its own — it shares no donor or version hash with the others, so
+there is no reason to re-download 25 MB of text families:
+
+```bash
+python scripts/build_fonts.py --emoji-only
+```
+
+Verify:
+
+```bash
+python - <<'PY'
+from fontTools.ttLib import TTFont
+f = TTFont('static/fonts/noto-emoji/Regular.ttf')
+cmap = f.getBestCmap()
+need = [0x1F3CB, 0x1F4CA, 0x2705, 0x1F44D, 0x1F1E7, 0x0031, 0x20E3]
+print('missing:', [hex(c) for c in need if c not in cmap] or 'none')
+print('fvar gone:', 'fvar' not in f)
+print('codepoints:', len(cmap))
+PY
+```
+
+Then run `npm test` — `tests/unit/emoji.test.ts` pins which characters may move
+to this family and, just as importantly, which may not.

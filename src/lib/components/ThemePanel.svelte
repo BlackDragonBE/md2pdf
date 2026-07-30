@@ -6,6 +6,7 @@
 	import MarginInput from './controls/MarginInput.svelte';
 	import NumberInput from './controls/NumberInput.svelte';
 	import Section from './controls/Section.svelte';
+	import { CALLOUT_TYPES } from '$lib/markdown/obsidian';
 	import { PRESETS } from '$lib/theme/presets';
 	import { approxDataUriBytes } from '$lib/theme/io';
 	import type { ElementKey, ElementStyleT, FontRole, ImageSpecT, Theme } from '$lib/theme/schema';
@@ -27,7 +28,9 @@
 		['codeBlock', 'Code block'],
 		['inlineCode', 'Inline code'],
 		['tableHeader', 'Table header'],
-		['tableCell', 'Table cell']
+		['tableCell', 'Table cell'],
+		['calloutTitle', 'Callout title'],
+		['footnote', 'Footnote']
 	];
 
 	const TEMPLATE_HINT = '{{page}} {{pages}} {{title}} {{subtitle}} {{author}} {{date}}';
@@ -853,6 +856,293 @@
 		</Field>
 	</Section>
 
+	<Section title="Obsidian Markdown">
+		<p class="hint">
+			Each switch controls parsing, not just styling: turn one off and that syntax stays in the
+			PDF as literal text.
+		</p>
+
+		<Field label="Callouts" hint={'> [!note] Title, then the body on the following lines'}>
+			<input
+				type="checkbox"
+				checked={t.obsidian.callouts.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.callouts.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.obsidian.callouts.enabled}
+			<Field label="Bar width">
+				<NumberInput
+					value={t.obsidian.callouts.barWidth}
+					min={0}
+					max={20}
+					step={0.5}
+					suffix="pt"
+					onchange={(v) => edit((d) => (d.obsidian.callouts.barWidth = v))}
+				/>
+			</Field>
+			<Field label="Padding">
+				<MarginInput
+					value={t.obsidian.callouts.padding}
+					min={0}
+					onchange={(p) => edit((d) => (d.obsidian.callouts.padding = p))}
+				/>
+			</Field>
+			<Field label="Margin">
+				<MarginInput
+					value={t.obsidian.callouts.margin}
+					onchange={(m) => edit((d) => (d.obsidian.callouts.margin = m))}
+				/>
+			</Field>
+			<Field
+				label="Print collapsed bodies"
+				hint={'A callout written as > [!note]- is collapsed in Obsidian; a PDF cannot expand it.'}
+			>
+				<input
+					type="checkbox"
+					checked={t.obsidian.callouts.showCollapsedBody}
+					onchange={(e) =>
+						edit((d) => (d.obsidian.callouts.showCollapsedBody = e.currentTarget.checked))}
+				/>
+			</Field>
+			<p class="hint">
+				Accent, panel and an optional icon per type. Aliases such as <code>tldr</code> or
+				<code>caution</code> follow their canonical type. Icons are drawn from the document
+				font — the bundled families carry few symbols, so <code>✓</code> is a safe one.
+			</p>
+			<!-- Not <Field>: three controls will not fit in its narrow control
+			     column, so each type gets a full-width row of its own. -->
+			<div class="callouts">
+				{#each CALLOUT_TYPES as type (type)}
+					{@const spec = t.obsidian.callouts.types[type]}
+					{#if spec}
+						<div class="callout-row">
+							<span class="callout-name">{type}</span>
+							<div class="callout-controls">
+								<span class="swatch">
+									<ColorInput
+										value={spec.color}
+										onchange={(c) => c && edit((d) => (d.obsidian.callouts.types[type].color = c))}
+									/>
+								</span>
+								<span class="swatch">
+									<ColorInput
+										value={spec.background}
+										onchange={(c) =>
+											c && edit((d) => (d.obsidian.callouts.types[type].background = c))}
+									/>
+								</span>
+								<input
+									class="icon"
+									type="text"
+									maxlength="4"
+									aria-label="{type} icon"
+									placeholder="icon"
+									value={spec.icon}
+									onchange={(e) =>
+										edit((d) => (d.obsidian.callouts.types[type].icon = e.currentTarget.value))}
+								/>
+							</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{/if}
+
+		<hr />
+		<Field
+			label="Wikilinks"
+			hint="[[Note]], [[Note|alias]], [[Note#Heading]]. There is no vault, so these render as styled text rather than links."
+		>
+			<input
+				type="checkbox"
+				checked={t.obsidian.wikilinks.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.wikilinks.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.obsidian.wikilinks.enabled}
+			<Field label="Colour">
+				<ColorInput
+					value={t.obsidian.wikilinks.color}
+					onchange={(c) => c && edit((d) => (d.obsidian.wikilinks.color = c))}
+				/>
+			</Field>
+			<Field label="Underline">
+				<input
+					type="checkbox"
+					checked={t.obsidian.wikilinks.underline}
+					onchange={(e) =>
+						edit((d) => (d.obsidian.wikilinks.underline = e.currentTarget.checked))}
+				/>
+			</Field>
+			<Field label="Italic">
+				<input
+					type="checkbox"
+					checked={t.obsidian.wikilinks.italics}
+					onchange={(e) => edit((d) => (d.obsidian.wikilinks.italics = e.currentTarget.checked))}
+				/>
+			</Field>
+			<Field label="Keep [[brackets]]">
+				<input
+					type="checkbox"
+					checked={t.obsidian.wikilinks.showBrackets}
+					onchange={(e) =>
+						edit((d) => (d.obsidian.wikilinks.showBrackets = e.currentTarget.checked))}
+				/>
+			</Field>
+			<Field label="Show embeds" hint="![[Note]] — printed as a reference to the target.">
+				<input
+					type="checkbox"
+					checked={t.obsidian.embeds.show}
+					onchange={(e) => edit((d) => (d.obsidian.embeds.show = e.currentTarget.checked))}
+				/>
+			</Field>
+			{#if t.obsidian.embeds.show}
+				<Field label="Embeds italic">
+					<input
+						type="checkbox"
+						checked={t.obsidian.embeds.italics}
+						onchange={(e) => edit((d) => (d.obsidian.embeds.italics = e.currentTarget.checked))}
+					/>
+				</Field>
+			{/if}
+		{/if}
+
+		<hr />
+		<Field label="Highlights" hint="==text==">
+			<input
+				type="checkbox"
+				checked={t.obsidian.highlight.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.highlight.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.obsidian.highlight.enabled}
+			<Field label="Background">
+				<ColorInput
+					value={t.obsidian.highlight.background}
+					onchange={(c) => c && edit((d) => (d.obsidian.highlight.background = c))}
+				/>
+			</Field>
+			<Field label="Text colour" hint="Unset keeps the surrounding text colour.">
+				<ColorInput
+					value={t.obsidian.highlight.color}
+					nullable
+					onchange={(c) => edit((d) => (d.obsidian.highlight.color = c))}
+				/>
+			</Field>
+			<Field label="Bold">
+				<input
+					type="checkbox"
+					checked={t.obsidian.highlight.bold}
+					onchange={(e) => edit((d) => (d.obsidian.highlight.bold = e.currentTarget.checked))}
+				/>
+			</Field>
+		{/if}
+
+		<hr />
+		<Field label="Footnotes" hint={'A reference like [^1] plus a "[^1]: note" definition.'}>
+			<input
+				type="checkbox"
+				checked={t.obsidian.footnotes.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.footnotes.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.obsidian.footnotes.enabled}
+			<Field label="Notes heading" hint="Leave empty for no heading. Uses the H2 style.">
+				<input
+					type="text"
+					maxlength="80"
+					value={t.obsidian.footnotes.heading}
+					onchange={(e) => edit((d) => (d.obsidian.footnotes.heading = e.currentTarget.value))}
+				/>
+			</Field>
+			<Field label="Reference colour">
+				<ColorInput
+					value={t.obsidian.footnotes.refColor}
+					onchange={(c) => c && edit((d) => (d.obsidian.footnotes.refColor = c))}
+				/>
+			</Field>
+			<Field label="Start on a new page">
+				<input
+					type="checkbox"
+					checked={t.obsidian.footnotes.breakBefore}
+					onchange={(e) =>
+						edit((d) => (d.obsidian.footnotes.breakBefore = e.currentTarget.checked))}
+				/>
+			</Field>
+			<Field label="Rule line">
+				<input
+					type="checkbox"
+					checked={t.obsidian.footnotes.rule.enabled}
+					onchange={(e) =>
+						edit((d) => (d.obsidian.footnotes.rule.enabled = e.currentTarget.checked))}
+				/>
+			</Field>
+			{#if t.obsidian.footnotes.rule.enabled}
+				<Field label="Rule colour">
+					<ColorInput
+						value={t.obsidian.footnotes.rule.color}
+						onchange={(c) => c && edit((d) => (d.obsidian.footnotes.rule.color = c))}
+					/>
+				</Field>
+				<Field label="Rule width">
+					<NumberInput
+						value={t.obsidian.footnotes.rule.width}
+						min={0}
+						max={10}
+						step={0.25}
+						suffix="pt"
+						onchange={(v) => edit((d) => (d.obsidian.footnotes.rule.width = v))}
+					/>
+				</Field>
+			{/if}
+		{/if}
+
+		<hr />
+		<Field label="Comments" hint="%%text%%, inline or across several lines.">
+			<input
+				type="checkbox"
+				checked={t.obsidian.comments.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.comments.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.obsidian.comments.enabled}
+			<Field label="Print comments" hint="Off keeps them out of the PDF, as Obsidian does.">
+				<input
+					type="checkbox"
+					checked={t.obsidian.comments.show}
+					onchange={(e) => edit((d) => (d.obsidian.comments.show = e.currentTarget.checked))}
+				/>
+			</Field>
+			{#if t.obsidian.comments.show}
+				<Field label="Comment colour">
+					<ColorInput
+						value={t.obsidian.comments.color}
+						onchange={(c) => c && edit((d) => (d.obsidian.comments.color = c))}
+					/>
+				</Field>
+				<Field label="Comment italic">
+					<input
+						type="checkbox"
+						checked={t.obsidian.comments.italics}
+						onchange={(e) => edit((d) => (d.obsidian.comments.italics = e.currentTarget.checked))}
+					/>
+				</Field>
+			{/if}
+		{/if}
+
+		<hr />
+		<Field
+			label="Block identifiers"
+			hint="^my-id at the end of a block. On strips it; off prints it."
+		>
+			<input
+				type="checkbox"
+				checked={t.obsidian.blockIds.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.blockIds.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+	</Section>
+
 	<Section title="Images">
 		<Field label="Max width" hint="Fraction of the content column">
 			<NumberInput
@@ -981,6 +1271,56 @@
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
 		padding: 6px;
+	}
+	.hint {
+		margin: 0 0 8px;
+		font-size: 11.5px;
+		line-height: 1.45;
+		color: var(--text-dim);
+	}
+	.hint code {
+		font-size: 11px;
+	}
+	.callouts {
+		max-height: 300px;
+		overflow-y: auto;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 6px 8px;
+	}
+	.callout-row {
+		padding: 5px 0;
+	}
+	.callout-row + .callout-row {
+		border-top: 1px solid var(--border);
+	}
+	.callout-name {
+		display: block;
+		color: var(--text-dim);
+		font-size: 12px;
+		margin-bottom: 3px;
+	}
+	.callout-controls {
+		display: grid;
+		grid-template-columns: 1fr 1fr 3.6em;
+		gap: 6px;
+		align-items: center;
+	}
+	.swatch {
+		display: flex;
+		gap: 4px;
+		align-items: center;
+		min-width: 0;
+	}
+	/* The hex field takes whatever the picker leaves; without this it collapses
+	   to the input's default size and shows three characters. */
+	.swatch :global(input[type='text']) {
+		flex: 1;
+		min-width: 0;
+	}
+	.icon {
+		min-width: 0;
+		text-align: center;
 	}
 	hr {
 		border: 0;

@@ -3,7 +3,8 @@ import type { DocMeta } from '../markdown/frontmatter';
 import type { Anchor } from '../pdf/buildDocDefinition';
 import type { ResolvedImage } from '../pdf/images';
 import type { FontDictionary, Vfs } from '../pdf/pdfmake-types';
-import type { FontRole, Theme } from '../theme/schema';
+import type { FontMap } from '../pdf/styles';
+import type { Theme } from '../theme/schema';
 
 /**
  * The worker builds the document definition itself.
@@ -21,7 +22,7 @@ export interface RenderRequest {
 	theme: Theme;
 	meta: DocMeta;
 	images: [string, ResolvedImage][];
-	roles: Record<FontRole, string>;
+	roles: FontMap;
 	vfs: Vfs;
 	fonts: FontDictionary;
 }

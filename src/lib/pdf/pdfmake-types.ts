@@ -31,6 +31,8 @@ export interface TextRun {
 	lineHeight?: number;
 	preserveLeadingSpaces?: boolean;
 	noWrap?: boolean;
+	sup?: boolean;
+	sub?: boolean;
 }
 
 export interface TextNode extends Omit<TextRun, 'text'> {

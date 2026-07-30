@@ -1,5 +1,6 @@
 import type { DocMeta } from '../markdown/frontmatter';
 import type { CoverBlockT, Theme } from '../theme/schema';
+import { emojiText } from './emoji';
 import { formatDate } from './headerFooter';
 import type { Content, PageSize, TextNode } from './pdfmake-types';
 import type { FontMap } from './styles';
@@ -40,7 +41,7 @@ export function buildCover(
 		if (!text) continue;
 		const y = (parseFloat(block.y) / 100) * pageSize.height;
 		const node: TextNode = {
-			text,
+			text: emojiText(text, fonts.emoji),
 			font: fonts[block.font],
 			fontSize: block.size,
 			bold: block.bold,

@@ -28,8 +28,10 @@ describe('bundled font versioning', () => {
 	it('derives the version from the actual bytes', () => {
 		for (const id of ids) {
 			const digest = createHash('sha256');
-			for (const face of ['Regular', 'Bold', 'Italic', 'BoldItalic']) {
-				digest.update(readFileSync(join(FONT_DIR, id, `${face}.ttf`)));
+			// The distinct files the manifest points at, in face order. Not the
+			// four face *names*: the emoji family aims all four at one file.
+			for (const path of [...new Set(Object.values(manifest[id].files))]) {
+				digest.update(readFileSync(join(FONT_DIR, path)));
 			}
 			expect(manifest[id].version, `${id} version is stale`).toBe(
 				digest.digest('hex').slice(0, 8)

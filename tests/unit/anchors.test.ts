@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderMarkdown } from '../helpers/render';
 import { parse } from '../../src/lib/markdown/parse';
+import { parseOpts } from '../helpers/parseOptions';
 
 /**
  * Scroll sync maps a source line to a place in the PDF. pdfmake only reveals a
@@ -53,7 +54,7 @@ describe('source-line anchors', () => {
 	it('lines up with the tokens the parser produced', async () => {
 		const { anchors } = await renderMarkdown(doc);
 		const sourceLines = new Set(
-			parse(doc, '\pagebreak')
+			parse(doc, parseOpts())
 				.tokens.filter((t) => t.map)
 				.map((t) => t.map![0])
 		);

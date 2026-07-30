@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import PdfPrinter from 'pdfmake/src/printer.js';
 import { buildDocDefinition, type Anchor } from '../../src/lib/pdf/buildDocDefinition';
 import { buildLayouts } from '../../src/lib/pdf/layouts';
-import { parse } from '../../src/lib/markdown/parse';
+import { parse, parseOptionsFor } from '../../src/lib/markdown/parse';
+import { EMOJI_FAMILY_ID } from '../../src/lib/fonts/types';
+import { hasEmoji } from '../../src/lib/pdf/emoji';
 import type { ResolvedImage } from '../../src/lib/pdf/images';
 import type { DocMeta } from '../../src/lib/markdown/frontmatter';
 import type { FontMap } from '../../src/lib/pdf/styles';
@@ -57,7 +59,7 @@ export async function renderMarkdown(
 	options: RenderOptions = {}
 ): Promise<RenderedPdf> {
 	const theme = options.theme ?? cloneDefaultTheme();
-	const parsed = parse(source, theme.pagebreak.marker, options.meta ?? {});
+	const parsed = parse(source, parseOptionsFor(theme), options.meta ?? {});
 
 	const ids = [...new Set(Object.values(theme.fonts).map((s) => (s.source.kind === 'builtin' ? s.source.id : s.fallback)))];
 	const roles: FontMap = {
@@ -65,6 +67,13 @@ export async function renderMarkdown(
 		heading: `b_${theme.fonts.heading.source.kind === 'builtin' ? theme.fonts.heading.source.id : theme.fonts.heading.fallback}`,
 		mono: `b_${theme.fonts.mono.source.kind === 'builtin' ? theme.fonts.mono.source.id : theme.fonts.mono.fallback}`
 	};
+
+	// Mirrors resolveFonts: the emoji family joins only when the document needs
+	// it, so a document without emoji renders exactly as it did before.
+	if (hasEmoji(source)) {
+		ids.push(EMOJI_FAMILY_ID);
+		roles.emoji = `b_${EMOJI_FAMILY_ID}`;
+	}
 
 	const { docDefinition, warnings, anchors } = buildDocDefinition({
 		tokens: parsed.tokens,

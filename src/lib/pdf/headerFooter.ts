@@ -1,5 +1,6 @@
 import type { DocMeta } from '../markdown/frontmatter';
 import type { Theme } from '../theme/schema';
+import { emojiText } from './emoji';
 import type { Content, PageSize, StackNode, TextNode } from './pdfmake-types';
 import type { FontMap } from './styles';
 
@@ -95,7 +96,7 @@ function bandNode(
 	const contentWidth = pageSize.width - ml - mr;
 
 	const label: TextNode = {
-		text,
+		text: emojiText(text, fonts.emoji),
 		font: fonts[band.font],
 		fontSize: band.size,
 		color: band.color,

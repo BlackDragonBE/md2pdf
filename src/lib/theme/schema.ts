@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const THEME_VERSION = 1;
+export const THEME_VERSION = 2;
 
 const Hex = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
 const Margin = z.tuple([z.number(), z.number(), z.number(), z.number()]); // [l, t, r, b] in pt
@@ -187,6 +187,73 @@ export const ThemeSchema = z.object({
 		underline: z.boolean().default(false)
 	}),
 
+	/**
+	 * Obsidian Flavored Markdown. Each `enabled` flag gates *parsing*: with it
+	 * off the syntax stays literal text, which matters for a document that uses
+	 * `[[`, `%%` or `^id` to mean something else.
+	 */
+	obsidian: z.object({
+		callouts: z.object({
+			enabled: z.boolean().default(true),
+			barWidth: z.number().min(0).max(20).default(3),
+			padding: Margin.default([10, 8, 10, 8]),
+			margin: Margin.default([0, 4, 0, 10]),
+			/** `> [!note]-` is collapsed in Obsidian; a PDF cannot expand it. */
+			showCollapsedBody: z.boolean().default(true),
+			/** Keyed by canonical callout type — see CALLOUT_TYPES. */
+			types: z
+				.record(
+					z.string(),
+					z.object({
+						color: Hex,
+						background: Hex,
+						/** Drawn before the title. Any character the font has; empty for none. */
+						icon: z.string().max(4).default('')
+					})
+				)
+				.default({})
+		}),
+		wikilinks: z.object({
+			enabled: z.boolean().default(true),
+			color: Hex.default('#7048c8'),
+			underline: z.boolean().default(false),
+			italics: z.boolean().default(false),
+			/** Keep the `[[ ]]` brackets in the output. */
+			showBrackets: z.boolean().default(false)
+		}),
+		embeds: z.object({
+			/** There is no vault to embed from, so `![[…]]` renders as a reference. */
+			show: z.boolean().default(true),
+			italics: z.boolean().default(true)
+		}),
+		highlight: z.object({
+			enabled: z.boolean().default(true),
+			background: Hex.default('#fff3a3'),
+			/** null keeps the surrounding text colour. */
+			color: Hex.nullable().default(null),
+			bold: z.boolean().default(false)
+		}),
+		footnotes: z.object({
+			enabled: z.boolean().default(true),
+			/** Heading above the notes section. Empty for none. */
+			heading: z.string().max(80).default('Notes'),
+			refColor: Hex.default('#0366d6'),
+			breakBefore: z.boolean().default(false),
+			rule: Rule
+		}),
+		comments: z.object({
+			enabled: z.boolean().default(true),
+			/** Off by default: a comment is meant to stay out of the PDF. */
+			show: z.boolean().default(false),
+			color: Hex.default('#8a8a8a'),
+			italics: z.boolean().default(true)
+		}),
+		blockIds: z.object({
+			/** `^id` at the end of a block is stripped; off leaves it literal. */
+			enabled: z.boolean().default(true)
+		})
+	}),
+
 	image: z.object({
 		/** Max width as a fraction of the content column width. */
 		maxWidth: z.number().min(0.1).max(1).default(1),
@@ -213,7 +280,9 @@ export const ThemeSchema = z.object({
 		blockquote: ElementStyle,
 		listItem: ElementStyle,
 		tableCell: ElementStyle,
-		tableHeader: ElementStyle
+		tableHeader: ElementStyle,
+		calloutTitle: ElementStyle,
+		footnote: ElementStyle
 	}),
 
 	locale: z.string().default('en-US')

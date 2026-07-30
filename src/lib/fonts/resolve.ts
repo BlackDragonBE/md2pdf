@@ -2,13 +2,18 @@ import type { FontRole, FontSlotT, FontSourceT, Theme } from '../theme/schema';
 import { loadBuiltinFaces } from './builtin';
 import { loadGoogleFaces } from './google';
 import { loadUploadFaces } from './upload';
-import { familyKey, type ResolvedFont } from './types';
+import { EMOJI_FAMILY_ID, familyKey, type ResolvedFont } from './types';
 
 export interface FontResolution {
 	/** family key → resolved faces, deduplicated across the three slots. */
 	fonts: ResolvedFont[];
 	/** Font role → family key, for the pdfmake styles dictionary. */
 	roles: Record<FontRole, string>;
+	/**
+	 * Family key of the bundled emoji font, present only when the document has
+	 * emoji in it and the family loaded. `pdf/emoji.ts` routes runs to it.
+	 */
+	emoji?: string;
 	warnings: string[];
 	/** Slots that fell back, so the UI can show an explicit unavailable state (§7.4). */
 	failed: { role: FontRole; source: FontSourceT; reason: string }[];
@@ -65,7 +70,11 @@ export async function resolveSlot(
  * Resolve all three slots. Slots sharing a source resolve once — the same
  * family key is registered a single time in the pdfmake dictionary.
  */
-export async function resolveFonts(theme: Theme, charset: string): Promise<FontResolution> {
+export async function resolveFonts(
+	theme: Theme,
+	charset: string,
+	needsEmoji = false
+): Promise<FontResolution> {
 	const roles = ['body', 'heading', 'mono'] as const;
 	const warnings: string[] = [];
 	const failed: FontResolution['failed'] = [];
@@ -91,5 +100,27 @@ export async function resolveFonts(theme: Theme, charset: string): Promise<FontR
 		roleMap[role] = font.family;
 	}
 
-	return { fonts: [...byFamily.values()], roles: roleMap, warnings, failed };
+	// Only for a document that actually has emoji in it: the family is 845 KB,
+	// and fetching it for every render would be a download nobody asked for.
+	let emoji: string | undefined;
+	if (needsEmoji) {
+		const key = familyKey({ kind: 'builtin', id: EMOJI_FAMILY_ID });
+		if (byFamily.has(key)) {
+			emoji = key;
+		} else {
+			try {
+				const font = await loadSource({ kind: 'builtin', id: EMOJI_FAMILY_ID }, warnings, charset);
+				byFamily.set(font.family, font);
+				emoji = font.family;
+			} catch (e) {
+				// Not fatal: emoji fall back to whatever the text font does with
+				// them, which is what happened before the family existed.
+				warnings.push(
+					`Emoji font unavailable — ${(e instanceof Error ? e.message : String(e)).replace(/\.$/, '')}. Emoji may not render.`
+				);
+			}
+		}
+	}
+
+	return { fonts: [...byFamily.values()], roles: roleMap, warnings, emoji, failed };
 }

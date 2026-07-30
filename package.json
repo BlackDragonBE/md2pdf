@@ -35,6 +35,8 @@
 		"idb": "^8.0.1",
 		"js-yaml": "^4.1.0",
 		"markdown-it": "^14.1.0",
+		"markdown-it-footnote": "^4.0.0",
+		"markdown-it-mark": "^4.0.0",
 		"markdown-it-task-lists": "^2.1.1",
 		"pdfjs-dist": "^4.10.38",
 		"pdfmake": "^0.2.20",

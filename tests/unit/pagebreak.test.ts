@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '../../src/lib/markdown/parse';
+import { parseOpts } from '../helpers/parseOptions';
 
 const MARKER = '\\pagebreak';
 
 function types(source: string, marker = MARKER): string[] {
-	return parse(source, marker).tokens.map((t) => t.type);
+	return parse(source, parseOpts({ marker })).tokens.map((t) => t.type);
 }
 
 describe('pagebreak block rule', () => {
@@ -14,7 +15,7 @@ describe('pagebreak block rule', () => {
 
 	it('leaves a marker inside a fenced code block as literal text', () => {
 		const source = ['```', MARKER, '```'].join('\n');
-		const tokens = parse(source, MARKER).tokens;
+		const tokens = parse(source, parseOpts()).tokens;
 		expect(tokens.map((t) => t.type)).not.toContain('pagebreak');
 		expect(tokens.find((t) => t.type === 'fence')?.content).toBe(`${MARKER}\n`);
 	});
@@ -37,7 +38,7 @@ describe('pagebreak block rule', () => {
 	});
 
 	it('interrupts a paragraph', () => {
-		const tokens = parse(`before\n${MARKER}\nafter`, MARKER).tokens;
+		const tokens = parse(`before\n${MARKER}\nafter`, parseOpts()).tokens;
 		expect(tokens.map((t) => t.type)).toContain('pagebreak');
 	});
 
@@ -65,18 +66,18 @@ describe('pagebreak block rule', () => {
 
 describe('markdown parser configuration', () => {
 	it('never lets raw HTML through as an html token with content', () => {
-		const tokens = parse('<div>hi</div>\n\n<span>x</span>', MARKER).tokens;
+		const tokens = parse('<div>hi</div>\n\n<span>x</span>', parseOpts()).tokens;
 		const html = tokens.filter((t) => t.type === 'html_block');
 		expect(html).toHaveLength(0);
 	});
 
 	it('linkifies bare URLs', () => {
-		const inline = parse('see https://example.com', MARKER).tokens.find((t) => t.type === 'inline');
+		const inline = parse('see https://example.com', parseOpts()).tokens.find((t) => t.type === 'inline');
 		expect(inline?.children?.some((c) => c.type === 'link_open')).toBe(true);
 	});
 
 	it('does not turn a single newline into a hard break', () => {
-		const inline = parse('one\ntwo', MARKER).tokens.find((t) => t.type === 'inline');
+		const inline = parse('one\ntwo', parseOpts()).tokens.find((t) => t.type === 'inline');
 		expect(inline?.children?.some((c) => c.type === 'hardbreak')).toBe(false);
 		expect(inline?.children?.some((c) => c.type === 'softbreak')).toBe(true);
 	});

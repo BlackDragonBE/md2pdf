@@ -1,5 +1,6 @@
 import type Token from 'markdown-it/lib/token.mjs';
 import type { Theme } from '../theme/schema';
+import { splitEmojiRuns } from './emoji';
 import type { ResolvedImage } from './images';
 import type { ImageNode, TextRun } from './pdfmake-types';
 import type { FontMap } from './styles';
@@ -27,10 +28,11 @@ interface Format {
 	bold: boolean;
 	italics: boolean;
 	strike: boolean;
+	mark: boolean;
 	link: string | null;
 }
 
-const BASE: Format = { bold: false, italics: false, strike: false, link: null };
+const BASE: Format = { bold: false, italics: false, strike: false, mark: false, link: null };
 
 const CHECKBOX = /^<input\b[^>]*type=["']?checkbox/i;
 
@@ -56,6 +58,13 @@ export function renderInline(
 		if (f.bold) run.bold = true;
 		if (f.italics) run.italics = true;
 		if (f.strike) run.decoration = 'lineThrough';
+		if (f.mark) {
+			const h = ctx.theme.obsidian.highlight;
+			run.background = h.background;
+			if (h.color) run.color = h.color;
+			if (h.bold) run.bold = true;
+		}
+		// A highlighted link keeps the link colour, as it does in Obsidian.
 		if (f.link !== null) {
 			run.link = f.link;
 			run.color = ctx.theme.link.color;
@@ -83,9 +92,13 @@ export function renderInline(
 			case 's_open':
 				open({ strike: true });
 				break;
+			case 'mark_open':
+				open({ mark: true });
+				break;
 			case 'strong_close':
 			case 'em_close':
 			case 's_close':
+			case 'mark_close':
 			case 'link_close':
 				close();
 				break;
@@ -116,13 +129,70 @@ export function renderInline(
 				else ctx.warnings.add('Inline HTML was dropped — the PDF renderer has no HTML support.');
 				break;
 			}
+			case 'wikilink': {
+				const link = wikilinkRun(tok, ctx);
+				if (link) push(link.text, link.extra);
+				break;
+			}
+			case 'obsidian_comment': {
+				const c = ctx.theme.obsidian.comments;
+				if (c.show) push(tok.content, { color: c.color, italics: c.italics });
+				break;
+			}
+			case 'block_id':
+				break; // A vault-internal anchor; nothing to show in a PDF.
+			case 'footnote_ref': {
+				const id = (tok.meta as { id?: number } | undefined)?.id ?? 0;
+				push(String(id + 1), { sup: true, color: ctx.theme.obsidian.footnotes.refColor });
+				break;
+			}
 			default:
 				// Unknown inline token with literal content still carries text.
 				if (tok.content) push(tok.content);
 		}
 	}
 
+	// Last, so every branch above is covered by one call: emoji need their own
+	// family, and pdfmake binds a font per run (§ pdf/emoji.ts).
+	return splitEmojiContent(out, ctx.fonts.emoji);
+}
+
+/** `splitEmojiRuns` over a list that may also hold image nodes. */
+function splitEmojiContent(content: InlineContent[], font: string | undefined): InlineContent[] {
+	if (!font) return content;
+	const out: InlineContent[] = [];
+	for (const item of content) {
+		if ('text' in item) out.push(...splitEmojiRuns([item], font));
+		else out.push(item);
+	}
 	return out;
+}
+
+/**
+ * A wikilink points into a vault that a standalone PDF has no access to, so it
+ * renders as styled text, never a hyperlink. `[[Note#Heading]]` without an
+ * alias reads as `Note > Heading`, the way Obsidian shows it.
+ */
+function wikilinkRun(
+	tok: Token,
+	ctx: InlineContext
+): { text: string; extra: Partial<TextRun> } | null {
+	const o = ctx.theme.obsidian;
+	const embed = attrGet(tok, 'embed') === '1';
+	if (embed && !o.embeds.show) return null;
+
+	const alias = attrGet(tok, 'alias') ?? '';
+	const target = attrGet(tok, 'target') ?? '';
+	const section = attrGet(tok, 'section') ?? '';
+
+	let text = alias || (target && section ? `${target} > ${section}` : target || section);
+	if (!text) return null;
+	if (o.wikilinks.showBrackets) text = `${embed ? '!' : ''}[[${text}]]`;
+
+	const extra: Partial<TextRun> = { color: o.wikilinks.color };
+	if (o.wikilinks.italics || (embed && o.embeds.italics)) extra.italics = true;
+	if (o.wikilinks.underline) extra.decoration = 'underline';
+	return { text, extra };
 }
 
 /** markdown-it-task-lists injects the checkbox as html_inline; swap in the theme glyph. */
@@ -175,6 +245,10 @@ function sameFormat(a: TextRun, b: TextRun): boolean {
 		a.decoration === b.decoration &&
 		a.link === b.link &&
 		a.color === b.color &&
-		a.background === b.background
+		a.background === b.background &&
+		a.sup === b.sup &&
+		// Load-bearing: emoji runs differ from their neighbours *only* by font,
+		// so without this they coalesce straight back into the text family.
+		a.font === b.font
 	);
 }

@@ -1,4 +1,5 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
+import { THEME_VERSION } from '../../src/lib/theme/schema';
 
 async function downloadBytes(download: Download): Promise<Buffer> {
 	const stream = await download.createReadStream();
@@ -214,7 +215,7 @@ test('exporting a theme produces importable JSON', async ({ page }) => {
 		string,
 		unknown
 	>;
-	expect(parsed.version).toBe(1);
+	expect(parsed.version).toBe(THEME_VERSION);
 	expect(parsed).toHaveProperty('elements');
 	expect(parsed).toHaveProperty('fonts');
 });
@@ -235,7 +236,9 @@ test('the About page describes the project and lists every bundled family', asyn
 
 	await page.getByRole('link', { name: 'About' }).click();
 	await expect(page.getByRole('heading', { name: 'About md2pdf' })).toBeVisible();
-	await expect(page.locator('tbody tr')).toHaveCount(12);
+	// Twelve text families plus Noto Emoji, which is bundled and so must be
+	// attributed here even though it is never a selectable font slot.
+	await expect(page.locator('tbody tr')).toHaveCount(13);
 	await expect(page.getByRole('link', { name: 'OFL-1.1' }).first()).toBeVisible();
 	await expect(page.getByText('entirely inside your browser')).toBeVisible();
 	await expect(page).toHaveTitle(/about/);
@@ -988,6 +991,52 @@ test.describe('font cache invalidation', () => {
 		expect(pdf.pages[0]).toContain('├──');
 		expect(pdf.pages[0]).toContain('└──');
 		expect(pdf.pages[0]).toContain('│');
+	});
+});
+
+/**
+ * The bundled families are Latin subsets and pdfmake binds one font per run, so
+ * emoji were silently blank boxes. The emoji family is 845 KB, so it must load
+ * only for a document that actually contains one.
+ */
+test.describe('emoji', () => {
+	test('are fetched only when the document has them, then cached', async ({ page }) => {
+		const emojiKeys = () =>
+			page.evaluate(async () => {
+				const db = await new Promise<IDBDatabase>((resolve, reject) => {
+					const request = indexedDB.open('md2pdf');
+					request.onsuccess = () => resolve(request.result);
+					request.onerror = () => reject(request.error);
+				});
+				const store = db.transaction('fonts', 'readonly').objectStore('fonts');
+				const all = await new Promise<IDBValidKey[]>((r) => {
+					const q = store.getAllKeys();
+					q.onsuccess = () => r(q.result);
+				});
+				db.close();
+				return all.map(String).filter((k) => k.includes('noto-emoji'));
+			});
+
+		await setSource(page, '# Plain heading\n\nNo emoji at all.');
+		expect(await emojiKeys()).toHaveLength(0);
+
+		await setSource(page, '# Heading \u{1F3CB}\uFE0F\n\nBody \u{1F4CA} text.');
+		await expect.poll(emojiKeys).not.toHaveLength(0);
+
+		// One entry, not four: all four faces point at the same file.
+		expect(await emojiKeys()).toHaveLength(1);
+	});
+
+	test('reach the downloaded PDF alongside the text', async ({ page }) => {
+		await setSource(
+			page,
+			'# Report \u{1F4CA}\n\nProgress \u{1F3AF} and \u2705 done.\n\n- bullet \u{1F525}'
+		);
+		const pdf = await readPdf(await download(page));
+		expect(pdf.pages[0]).toContain('Report');
+		expect(pdf.pages[0]).toContain('Progress');
+		expect(pdf.pages[0]).toContain('done');
+		expect(pdf.pages[0]).toContain('bullet');
 	});
 });
 

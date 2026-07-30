@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '../../src/lib/markdown/parse';
+import { parseOpts } from '../helpers/parseOptions';
 import { coalesce, renderInline, type InlineContext } from '../../src/lib/pdf/inline';
 import { cloneDefaultTheme } from '../../src/lib/theme/defaults';
 import type { TextRun } from '../../src/lib/pdf/pdfmake-types';
@@ -15,7 +16,7 @@ function ctx(): InlineContext {
 }
 
 function runs(markdown: string, c = ctx()): TextRun[] {
-	const inline = parse(markdown, '\\pagebreak').tokens.find((t) => t.type === 'inline');
+	const inline = parse(markdown, parseOpts()).tokens.find((t) => t.type === 'inline');
 	return coalesce(renderInline(inline?.children, 'paragraph', c)) as TextRun[];
 }
 
@@ -101,7 +102,7 @@ describe('inline node mapping', () => {
 		// `html: false` makes markdown-it escape rather than tokenise, so nothing
 		// reaches the renderer as html_inline in the first place (§6.1).
 		const c = ctx();
-		const tokens = parse('text <b>x</b> more', '\\pagebreak').tokens;
+		const tokens = parse('text <b>x</b> more', parseOpts()).tokens;
 		const inline = tokens.find((t) => t.type === 'inline');
 		expect(inline?.children?.some((child) => child.type === 'html_inline')).toBe(false);
 		expect(runs('text <b>x</b> more', c).map((r) => r.text).join('')).toBe('text <b>x</b> more');
@@ -120,7 +121,7 @@ describe('inline node mapping', () => {
 
 describe('task list checkboxes', () => {
 	function itemText(markdown: string, c = ctx()): string {
-		const tokens = parse(markdown, '\\pagebreak').tokens;
+		const tokens = parse(markdown, parseOpts()).tokens;
 		const inline = tokens.find((t) => t.type === 'inline');
 		return (coalesce(renderInline(inline?.children, 'listItem', c)) as TextRun[])
 			.map((r) => r.text)

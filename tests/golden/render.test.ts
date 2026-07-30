@@ -18,6 +18,20 @@ const FIXTURES = join(import.meta.dirname, '..', 'fixtures');
 const fixture = (name: string) => readFileSync(join(FIXTURES, name), 'utf8');
 
 /**
+ * Every family a theme slot may point at. The emoji family is in the manifest
+ * too, but it carries no Latin and no box drawing by design — it exists only
+ * for the runs `pdf/emoji.ts` routes to it.
+ */
+function textFamilyIds(): string[] {
+	const manifest = JSON.parse(
+		readFileSync(join(import.meta.dirname, '..', '..', 'static', 'fonts', 'manifest.json'), 'utf8')
+	) as Record<string, { category: string }>;
+	return Object.entries(manifest)
+		.filter(([, entry]) => entry.category !== 'emoji')
+		.map(([id]) => id);
+}
+
+/**
  * Structure only — page counts, text content, break positions. Never pixels:
  * pixel comparison is flaky across pdfkit versions (§14).
  */
@@ -309,11 +323,7 @@ describe('presets and page geometry', () => {
 });
 
 describe('every bundled family survives emphasis', () => {
-	const ids = Object.keys(
-		JSON.parse(
-			readFileSync(join(import.meta.dirname, '..', '..', 'static', 'fonts', 'manifest.json'), 'utf8')
-		) as Record<string, unknown>
-	);
+	const ids = textFamilyIds();
 
 	it.each(ids)('%s renders all four faces without throwing', async (id) => {
 		const theme = cloneDefaultTheme();
@@ -384,11 +394,7 @@ describe('generated documents are text, not raster', () => {
  * `tree`-style diagram rendered as blank boxes in every family.
  */
 describe('box drawing', () => {
-	const ids = Object.keys(
-		JSON.parse(
-			readFileSync(join(import.meta.dirname, '..', '..', 'static', 'fonts', 'manifest.json'), 'utf8')
-		) as Record<string, unknown>
-	);
+	const ids = textFamilyIds();
 
 	const BOX = '─│┌┐└┘├┤┬┴┼';
 
@@ -410,5 +416,147 @@ describe('box drawing', () => {
 		expect(out.text).toContain('└──');
 		expect(out.text).toContain('│');
 		expect(out.text).toContain('manifest.json');
+	});
+});
+
+/**
+ * Obsidian Flavored Markdown through the real pipeline. Callouts and the
+ * footnote section are the two shapes that only exist after layout — a callout
+ * is a table with an inline layout, and the notes block is appended by
+ * markdown-it-footnote after every other token.
+ */
+describe('obsidian flavored markdown', () => {
+	it('renders a callout with its title and body as text', async () => {
+		const out = await renderAndExtract('> [!warning] Mind the gap\n> Do not step off.');
+		expect(out.text).toContain('Mind the gap');
+		expect(out.text).toContain('Do not step off.');
+		expect(out.text).not.toContain('[!warning]');
+	});
+
+	it('titles an untitled callout with its type', async () => {
+		const out = await renderAndExtract('> [!tip]\n> Body only.');
+		expect(out.text).toContain('Tip');
+		expect(out.text).toContain('Body only.');
+	});
+
+	it('draws the callout icon when the theme supplies one', async () => {
+		const theme = cloneDefaultTheme();
+		theme.obsidian.callouts.types.note.icon = '✓';
+		const out = await renderAndExtract('> [!note] Titled\n> Body.', { theme });
+		expect(out.text).toContain('✓');
+	});
+
+	it('drops the body of a collapsed callout only when asked', async () => {
+		const source = '> [!note]- Collapsed\n> Hidden body.';
+		expect((await renderAndExtract(source)).text).toContain('Hidden body.');
+
+		const theme = cloneDefaultTheme();
+		theme.obsidian.callouts.showCollapsedBody = false;
+		const out = await renderAndExtract(source, { theme });
+		expect(out.text).toContain('Collapsed');
+		expect(out.text).not.toContain('Hidden body.');
+	});
+
+	it('renders footnotes as a numbered notes section', async () => {
+		const out = await renderAndExtract('Claim[^a] and another[^b].\n\n[^a]: First.\n[^b]: Second.');
+		expect(out.text).toContain('Notes');
+		expect(out.text).toContain('First.');
+		expect(out.text).toContain('Second.');
+		// Reference markers, in order of first use.
+		expect(out.text.indexOf('First.')).toBeLessThan(out.text.indexOf('Second.'));
+	});
+
+	it('can start the notes section on its own page', async () => {
+		const theme = cloneDefaultTheme();
+		theme.obsidian.footnotes.breakBefore = true;
+		const out = await renderAndExtract('Claim[^a].\n\n[^a]: First.', { theme });
+		expect(out.pageCount).toBe(2);
+		expect(out.pages[1]).toContain('First.');
+	});
+
+	it('keeps a highlight as selectable text', async () => {
+		const out = await renderAndExtract('This is ==important== text.');
+		expect(out.text).toContain('important');
+	});
+
+	it('renders a wikilink as text and keeps comments out', async () => {
+		const out = await renderAndExtract('See [[Other Note|the other]] %%not this%% here. ^blk-1');
+		expect(out.text).toContain('the other');
+		expect(out.text).not.toContain('not this');
+		expect(out.text).not.toContain('blk-1');
+	});
+});
+
+/**
+ * pdfmake binds one font per run and pdfkit has no glyph fallback, so an emoji
+ * in a Latin-subset family is a silent blank box. The renderer cuts runs at
+ * emoji boundaries and points those pieces at the bundled Noto Emoji family.
+ */
+describe('emoji', () => {
+	it('embeds the emoji family only when the document has emoji', async () => {
+		const plain = await renderAndExtract('# Just text\n\nNothing special here.');
+		expect(plain.fontNames.length).toBeGreaterThan(0);
+
+		const withEmoji = await renderAndExtract('# Heading 🏋️\n\nBody 📊 text.');
+		expect(withEmoji.fontNames.length).toBeGreaterThan(plain.fontNames.length);
+	});
+
+	it('keeps the surrounding text and the emoji on the same line', async () => {
+		const out = await renderAndExtract('Progress 📊 report 🎯 done ✅');
+		expect(out.text).toContain('Progress');
+		expect(out.text).toContain('report');
+		expect(out.text).toContain('done');
+		expect(out.pageCount).toBe(1);
+	});
+
+	it('renders emoji in headings, lists, tables, code and callouts', async () => {
+		const source = [
+			'# Heading 🚀',
+			'',
+			'- item 🔥',
+			'- [x] task ✨',
+			'',
+			'| a | b |',
+			'|---|---|',
+			'| 💡 | 📝 |',
+			'',
+			'```',
+			'code 🐛 line',
+			'```',
+			'',
+			'> [!tip] Tip 💡',
+			'> Body 🎯.'
+		].join('\n');
+		const out = await renderAndExtract(source);
+		for (const word of ['Heading', 'item', 'task', 'code', 'line', 'Tip', 'Body']) {
+			expect(out.text).toContain(word);
+		}
+		// The theme's own glyphs still come from the text font, unchanged.
+		expect(out.text).toContain('☑');
+	});
+
+	it('renders emoji in the header, footer and cover', async () => {
+		const theme = cloneDefaultTheme();
+		theme.header.enabled = true;
+		theme.header.template = 'Report 📊';
+		theme.footer.template = '{{page}} 🔥 {{pages}}';
+		theme.cover.enabled = true;
+		const out = await renderAndExtract('# Body', {
+			theme,
+			meta: { title: 'Cover 🚀' }
+		});
+		expect(out.text).toContain('Report');
+		expect(out.text).toContain('Cover');
+	});
+
+	it('leaves list bullets and tree diagrams to the text font', async () => {
+		// Same document with and without an emoji: the box drawing must not move
+		// to the emoji family, which has no glyph for it.
+		const tree = 'Tree:\n\n```\n├── a\n└── b\n```\n';
+		const plain = await renderAndExtract(tree);
+		const mixed = await renderAndExtract(`${tree}\nAnd an emoji 🔥.`);
+		expect(plain.text).toContain('├──');
+		expect(mixed.text).toContain('├──');
+		expect(mixed.text).toContain('└──');
 	});
 });

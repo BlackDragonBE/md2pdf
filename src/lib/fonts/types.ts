@@ -5,6 +5,9 @@ export type FaceBuffers = Record<FaceKey, ArrayBuffer>;
 
 export const FACE_KEYS: FaceKey[] = ['normal', 'bold', 'italics', 'bolditalics'];
 
+/** The bundled monochrome emoji family. Resolved on demand, never a theme slot. */
+export const EMOJI_FAMILY_ID = 'noto-emoji';
+
 export interface ResolvedFont {
 	/** Key used in the pdfMake font dictionary. */
 	family: string;
@@ -14,7 +17,12 @@ export interface ResolvedFont {
 
 export interface BuiltinFontEntry {
 	name: string;
-	category: 'sans' | 'serif' | 'mono' | 'display';
+	/**
+	 * `emoji` is not a typeface classification — it marks the one family that is
+	 * never a theme font slot, so the picker can leave it out. See
+	 * `EMOJI_FAMILY_ID` and `pdf/emoji.ts`.
+	 */
+	category: 'sans' | 'serif' | 'mono' | 'display' | 'emoji';
 	license: string;
 	url?: string;
 	files: Record<FaceKey, string>;

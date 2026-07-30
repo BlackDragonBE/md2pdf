@@ -51,8 +51,16 @@
 
 	<h2>Fonts</h2>
 	<p>
-		Twelve families are bundled as subsetted <em>static</em> instances, four real faces each. You can
-		also upload your own TTF or OTF, or pull a family from Google Fonts.
+		Twelve text families are bundled as subsetted <em>static</em> instances, four real faces each.
+		You can also upload your own TTF or OTF, or pull a family from Google Fonts.
+	</p>
+	<p>
+		A thirteenth, Noto Emoji, is never a font slot you can pick. pdfmake binds one font per run of
+		text and pdfkit has no glyph fallback, so an emoji in a Latin-subset family is a blank box.
+		Runs containing emoji are cut out and pointed at this family instead, and it is fetched only
+		for a document that has emoji in it. It is the <em>monochrome</em> Noto Emoji — pdfkit embeds
+		outlines and cannot render the colour build — so the glyphs take the colour of the text
+		around them.
 	</p>
 	<p>
 		Most of these families are published upstream only as variable fonts, which pdfkit renders at

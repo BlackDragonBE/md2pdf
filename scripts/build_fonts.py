@@ -94,6 +94,16 @@ FAMILIES = {
     "bitter": ("Bitter", "display", "OFL-1.1", "ofl/bitter", "Bitter[wght].ttf", "Bitter-Italic[wght].ttf"),
 }
 
+# A thirteenth family that is never offered as a theme font slot. pdfmake binds
+# one font per text run and has no glyph fallback, so emoji can only render if
+# the renderer routes their runs to a family that has them (src/lib/pdf/emoji.ts).
+# Noto Emoji is the *monochrome* build: pdfkit embeds glyf outlines and cannot
+# do the colour (CBDT) one, so the glyphs simply inherit the run's fill colour.
+# One weight serves all four faces — a bold emoji is not worth another 845 KB.
+EMOJI_ID = "noto-emoji"
+EMOJI = ("Noto Emoji", "OFL-1.1", "ofl/notoemoji", "NotoEmoji%5Bwght%5D.ttf")
+EMOJI_FEATURES = ["ccmp", "liga", "rlig"]
+
 _cache: dict[str, bytes] = {}
 
 
@@ -193,6 +203,50 @@ def graft_symbols(target: Path, donor_path: Path, wanted: list[int]) -> list[str
     return [f"U+{c:04X}" for c in missing]
 
 
+def build_emoji(manifest: dict[str, dict]) -> None:
+    """The emoji family: whole cmap kept, sequence lookups kept, one face."""
+    name, licence, directory, source = EMOJI
+    print(f"{name} ({EMOJI_ID})")
+    raw = fetch(f"{directory}/{source}")
+    font = make_static(raw, 400)
+
+    options = Options()
+    # ZWJ families, skin-tone modifiers, flags and keycaps are all GSUB
+    # ligatures. Drop these and 👨‍👩‍👧 renders as three separate people.
+    options.layout_features = EMOJI_FEATURES
+    options.name_IDs = ["*"]
+    options.name_legacy = True
+    options.notdef_outline = True
+    options.recalc_bounds = True
+    options.drop_tables += ["DSIG"]
+
+    subsetter = Subsetter(options=options)
+    subsetter.populate(unicodes=list(font.getBestCmap()))
+    subsetter.subset(font)
+
+    target = OUT / EMOJI_ID / "Regular.ttf"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    font.flavor = None
+    font.save(target)
+
+    licence_bytes = fetch(f"{directory}/OFL.txt")
+    (OUT / EMOJI_ID / "OFL.txt").write_bytes(licence_bytes)
+
+    path = f"{EMOJI_ID}/Regular.ttf"
+    manifest[EMOJI_ID] = {
+        "name": name,
+        # Not a real category: the font picker filters on it, because this
+        # family must never be selectable as a body, heading or mono slot.
+        "category": "emoji",
+        "license": licence,
+        "url": f"https://github.com/google/fonts/tree/main/{directory}",
+        "files": {face_key: path for face_key, _, _, _ in FACES},
+        "version": hashlib.sha256(target.read_bytes()).hexdigest()[:8],
+    }
+    print(f"  Regular     {target.stat().st_size / 1024:7.1f} KB  <- {source}")
+    print(f"  {len(font.getBestCmap())} codepoints")
+
+
 def parse_unicodes(spec: str) -> list[int]:
     out: list[int] = []
     for chunk in spec.split(","):
@@ -267,6 +321,10 @@ def build() -> None:
             digest.update((OUT / font_id / f"{face_name}.ttf").read_bytes())
         entry["version"] = digest.hexdigest()[:8]
 
+    # After the graft pass and the version loop, both of which assume four
+    # distinct faces per family.
+    build_emoji(manifest)
+
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     total = sum(p.stat().st_size for p in OUT.rglob("*.ttf"))
@@ -276,4 +334,12 @@ def build() -> None:
 if __name__ == "__main__":
     if shutil.which("python") is None:
         sys.exit("python not found")
-    build()
+    if "--emoji-only" in sys.argv:
+        # The emoji family shares nothing with the twelve text families — no
+        # donor, no graft, no shared version hash — so rebuilding it alone
+        # avoids re-downloading ~25 MB and rewriting bytes that did not change.
+        manifest = json.loads((OUT / "manifest.json").read_text(encoding="utf-8"))
+        build_emoji(manifest)
+        (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    else:
+        build()

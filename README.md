@@ -16,7 +16,7 @@ work is saved in the browser, so closing the tab does not lose it.
   typography, colours and spacing, background colour or image, watermark, cover
   page, running header and footer, and page-break rules.
 - **Twelve bundled fonts**, or upload your own TTF/OTF, or pull a family from
-  Google Fonts.
+  Google Fonts. Emoji render too, from a bundled monochrome family.
 - **Portable themes.** Export as JSON and share it; hand-editing is fine.
   Five presets ship in the box.
 - **Two-way scroll sync** that follows the actual content, not a percentage.
@@ -24,6 +24,9 @@ work is saved in the browser, so closing the tab does not lose it.
   network at all.
 - Front matter, tables, task lists, syntax-highlighted code fences, pasted
   images, and manual page breaks.
+- **Obsidian Flavored Markdown** — callouts, wikilinks, embeds, highlights,
+  footnotes, comments and block identifiers, each themeable and each
+  individually switchable off.
 
 ## Getting started
 
@@ -58,6 +61,23 @@ pane independently.
 document. This is the way to include local images — a page with no server cannot
 read files off your disk by relative path. Pasted images are capped at 2 MB.
 
+**Obsidian syntax.** Notes written in Obsidian print as they read:
+
+| Syntax | In the PDF |
+|---|---|
+| `> [!warning] Title` | A callout — coloured bar, tinted panel, styled title. Aliases such as `tldr` or `caution` work, and `[!note]-` marks it collapsed |
+| `[[Note]]`, `[[Note\|alias]]`, `[[Note#Heading]]` | Styled text. A standalone PDF has no vault to link into, so it is not a hyperlink |
+| `![[Note]]` | A reference to the target, italic by default, or hidden |
+| `==text==` | Highlighted |
+| `[^1]` plus `[^1]: note` | A superscript marker and a numbered notes section at the end |
+| `%%text%%` | Left out, inline or across several lines. Optionally printed, for review copies |
+| `^my-id` | Stripped |
+
+Each of these is a switch in the theme panel. Turn one off and that syntax stays
+in the PDF as literal text — useful if your document means something else by
+`[[`, `%%` or `^id`. Callout colours are per type, and every one takes an
+optional icon character.
+
 **Themes.** Every visual choice lives in the theme, and themes are portable
 JSON — export one, edit it in a text editor, send it to someone else. A partial
 or hand-edited file still works: anything it does not specify falls back to the
@@ -68,6 +88,14 @@ defaults. A theme carrying an uploaded font or a large image exports as a
 then cached, so a second visit downloads nothing. You can also upload a TTF or
 OTF, or fetch a family from Google Fonts — that last one needs a connection the
 first time and is marked experimental.
+
+**Emoji** work anywhere text does — headings, tables, callouts, code fences, the
+header and footer. They come from a bundled copy of Noto Emoji that is fetched
+only the first time you use an emoji, so a document without any downloads
+nothing extra. It is the monochrome build, which means emoji take the colour of
+the surrounding text rather than their own; pdfkit cannot embed colour emoji
+fonts. Sequences behave — family emoji, skin tones, flags and keycaps all render
+as one glyph.
 
 **Metadata.** Title, subtitle, author and date come from YAML front matter if the
 document has any, and can be filled in from the metadata panel otherwise. They

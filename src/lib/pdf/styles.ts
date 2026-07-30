@@ -1,8 +1,12 @@
 import type { ElementKey, ElementStyleT, FontRole, Theme } from '../theme/schema';
 import type { StyleDefinition } from './pdfmake-types';
 
-/** Font role → the family name registered in the pdfmake font dictionary. */
-export type FontMap = Record<FontRole, string>;
+/**
+ * Font role → the family name registered in the pdfmake font dictionary.
+ * `emoji` is not a theme role — it is the bundled emoji family, present only
+ * when the document needs it (see pdf/emoji.ts).
+ */
+export type FontMap = Record<FontRole, string> & { emoji?: string };
 
 export function elementStyle(e: ElementStyleT, fonts: FontMap): StyleDefinition {
 	return {

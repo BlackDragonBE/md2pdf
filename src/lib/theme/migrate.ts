@@ -4,13 +4,16 @@ type Migration = (input: Record<string, unknown>) => Record<string, unknown>;
 
 /**
  * Keyed by the version being migrated *from*. Each entry must bump `version`.
- * Empty today, present deliberately: retrofitting this once themes are in
- * users' hands is not possible (§5.3).
+ * Retrofitting this once themes are in users' hands is not possible (§5.3).
  *
- * Example for the next bump:
- *   1: (t) => ({ ...t, version: 2, newField: 'default' }),
+ * A step only has to fix fields whose *shape* changed — the deep-merge over
+ * DEFAULT_THEME in io.ts supplies anything merely added.
  */
-const MIGRATIONS: Record<number, Migration> = {};
+const MIGRATIONS: Record<number, Migration> = {
+	// 2 added `obsidian` and the calloutTitle/footnote element styles, both
+	// purely additive.
+	1: (t) => ({ ...t, version: 2 })
+};
 
 function isRecord(v: unknown): v is Record<string, unknown> {
 	return typeof v === 'object' && v !== null && !Array.isArray(v);

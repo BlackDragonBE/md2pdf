@@ -4,9 +4,11 @@ import type { Anchor } from '../pdf/buildDocDefinition';
 import { resolveFonts } from '../fonts/resolve';
 import { buildVfs } from '../fonts/register';
 import { EMPTY_META, type DocMeta } from '../markdown/frontmatter';
-import { parse } from '../markdown/parse';
+import { parse, parseOptionsFor } from '../markdown/parse';
+import { hasEmoji } from '../pdf/emoji';
 import { collectImageSources, resolveImages } from '../pdf/images';
 import type { FontDictionary, Vfs } from '../pdf/pdfmake-types';
+import type { FontMap } from '../pdf/styles';
 import type { FontRole, Theme } from '../theme/schema';
 import { debounce } from '../util/debounce';
 import type { RenderRequest, RenderResponse } from '../workers/protocol';
@@ -25,7 +27,7 @@ export type PdfState = 'idle' | 'generating' | 'ready' | 'error';
 export const SOFT_PAGE_LIMIT = 300;
 
 interface FontBundle {
-	roles: Record<FontRole, string>;
+	roles: FontMap;
 	vfs: Vfs;
 	fonts: FontDictionary;
 	warnings: string[];
@@ -77,16 +79,18 @@ class PdfStore {
 		void this.#run(input);
 	}
 
-	async #fontBundle(theme: Theme, charset: string): Promise<FontBundle> {
+	async #fontBundle(theme: Theme, charset: string, needsEmoji: boolean): Promise<FontBundle> {
 		// The charset is part of the key: Google fonts are subsetted to the
-		// document's characters, so a new character needs a new file.
-		const key = `${JSON.stringify(theme.fonts)}|${charsetKey(charset)}`;
+		// document's characters, so a new character needs a new file. So is the
+		// emoji flag — typing the first emoji has to pull in a family that the
+		// previous render did not need.
+		const key = `${JSON.stringify(theme.fonts)}|${charsetKey(charset)}|${needsEmoji}`;
 		if (this.#fontCache?.key === key) return this.#fontCache.bundle;
 
-		const resolution = await resolveFonts(theme, charset);
+		const resolution = await resolveFonts(theme, charset, needsEmoji);
 		const { vfs, fonts } = buildVfs(resolution.fonts);
 		const bundle: FontBundle = {
-			roles: resolution.roles,
+			roles: { ...resolution.roles, emoji: resolution.emoji },
 			vfs,
 			fonts,
 			warnings: resolution.warnings,
@@ -104,9 +108,9 @@ class PdfStore {
 
 		try {
 			const { theme, source, metaOverrides } = input;
-			const parsed = parse(source, theme.pagebreak.marker, metaOverrides);
+			const parsed = parse(source, parseOptionsFor(theme), metaOverrides);
 			const imageResult = await resolveImages(collectImageSources(parsed.tokens));
-			const fontBundle = await this.#fontBundle(theme, documentCharset(source));
+			const fontBundle = await this.#fontBundle(theme, documentCharset(source), hasEmoji(source));
 
 			if (id !== this.#latestId) return; // superseded while awaiting
 

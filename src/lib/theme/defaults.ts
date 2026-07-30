@@ -163,6 +163,52 @@ export const DEFAULT_THEME: Theme = {
 
 	link: { color: '#0366d6', underline: false },
 
+	obsidian: {
+		callouts: {
+			enabled: true,
+			barWidth: 3,
+			padding: [10, 8, 10, 8],
+			margin: [0, 4, 0, 10],
+			showCollapsedBody: true,
+			// Obsidian's own hues, each with a tint light enough to read body text on.
+			// Icons default to empty: the bundled fonts are subsets and only a
+			// handful of symbols survive, so a glyph here is the user's choice.
+			types: {
+				note: { color: '#086ddd', background: '#e7f0fd', icon: '' },
+				abstract: { color: '#00bfbc', background: '#e0f7f7', icon: '' },
+				info: { color: '#086ddd', background: '#e7f0fd', icon: '' },
+				todo: { color: '#086ddd', background: '#e7f0fd', icon: '' },
+				tip: { color: '#00bfbc', background: '#e0f7f7', icon: '' },
+				success: { color: '#08b94e', background: '#e4f7ec', icon: '' },
+				question: { color: '#ec7500', background: '#fdf0e3', icon: '' },
+				warning: { color: '#ec7500', background: '#fdf0e3', icon: '' },
+				failure: { color: '#e93147', background: '#fde8eb', icon: '' },
+				danger: { color: '#e93147', background: '#fde8eb', icon: '' },
+				bug: { color: '#e93147', background: '#fde8eb', icon: '' },
+				example: { color: '#7852ee', background: '#f0ebfd', icon: '' },
+				quote: { color: '#9e9e9e', background: '#f2f2f2', icon: '' }
+			}
+		},
+		wikilinks: {
+			enabled: true,
+			color: '#7048c8',
+			underline: false,
+			italics: false,
+			showBrackets: false
+		},
+		embeds: { show: true, italics: true },
+		highlight: { enabled: true, background: '#fff3a3', color: null, bold: false },
+		footnotes: {
+			enabled: true,
+			heading: 'Notes',
+			refColor: '#0366d6',
+			breakBefore: false,
+			rule: { enabled: true, color: '#dddddd', width: 0.5 }
+		},
+		comments: { enabled: true, show: false, color: '#8a8a8a', italics: true },
+		blockIds: { enabled: true }
+	},
+
 	image: {
 		maxWidth: 1,
 		alignment: 'center',
@@ -183,7 +229,11 @@ export const DEFAULT_THEME: Theme = {
 		blockquote: el({ size: 10.5, italics: true, color: '#57606a', margin: [0, 4, 0, 10] }),
 		listItem: el({ size: 10.5, margin: [0, 0, 0, 0] }),
 		tableCell: el({ size: 9.5, margin: [0, 0, 0, 0] }),
-		tableHeader: el({ size: 9.5, bold: true, color: '#111111', margin: [0, 0, 0, 0] })
+		tableHeader: el({ size: 9.5, bold: true, color: '#111111', margin: [0, 0, 0, 0] }),
+		// The callout type supplies the colour at render time; this one is the
+		// fallback for a type the theme has no entry for.
+		calloutTitle: el({ font: 'heading', size: 10.5, bold: true, margin: [0, 0, 0, 5] }),
+		footnote: el({ size: 8.5, color: '#57606a', margin: [0, 0, 0, 4] })
 	},
 
 	locale: 'en-US'

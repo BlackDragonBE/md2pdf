@@ -17,6 +17,15 @@
 
 	let manifest = $state<BuiltinFontManifest>({});
 	let manifestError = $state<string | null>(null);
+
+	/**
+	 * The emoji family is in the manifest so it is versioned and cached like any
+	 * other, but it has no Latin glyphs — picking it as a body font would render
+	 * an entire document as blank boxes.
+	 */
+	const selectable = $derived(
+		Object.entries(manifest).filter(([, entry]) => entry.category !== 'emoji')
+	);
 	let uploads = $state<UploadedFamily[]>([]);
 	let uploadError = $state<string | null>(null);
 	let googleInput = $state('');
@@ -94,7 +103,7 @@
 				onchange={(e) =>
 					onchange({ ...slot, source: { kind: 'builtin', id: e.currentTarget.value } })}
 			>
-				{#each Object.entries(manifest) as [id, entry] (id)}
+				{#each selectable as [id, entry] (id)}
 					<option value={id}>{entry.name} · {entry.category}</option>
 				{/each}
 			</select>
@@ -180,7 +189,7 @@
 			value={slot.fallback}
 			onchange={(e) => onchange({ ...slot, fallback: e.currentTarget.value })}
 		>
-			{#each Object.entries(manifest) as [id, entry] (id)}
+			{#each selectable as [id, entry] (id)}
 				<option value={id}>{entry.name}</option>
 			{/each}
 		</select>

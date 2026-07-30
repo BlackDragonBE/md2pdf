@@ -1,5 +1,6 @@
 import type Token from 'markdown-it/lib/token.mjs';
 import type { ElementKey, Theme } from '../theme/schema';
+import { splitEmojiRuns } from './emoji';
 import { highlightRuns } from './highlight';
 import type { ResolvedImage } from './images';
 import { drawWidth } from './images';
@@ -19,6 +20,10 @@ import type { FontMap } from './styles';
 export interface BlockContext extends InlineContext {
 	/** Nesting depth of the current list, for bullet character selection. */
 	listDepth: number;
+	/** Style paragraphs render with. Footnote bodies swap it out. */
+	paragraphStyle: string;
+	/** Accent of the enclosing callout, applied to its title. */
+	calloutColor: string | null;
 }
 
 class Cursor {
@@ -101,10 +106,13 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 				skipUntil(cur, 'paragraph_close');
 				return blockImage(solo, ctx);
 			}
-			const inline = takeInline(cur, 'paragraph', ctx);
+			const inline = takeInline(cur, ctx.paragraphStyle, ctx);
 			skipUntil(cur, 'paragraph_close');
 			if (inline.length === 0) return null;
-			const node: TextNode = { text: inline as (string | TextRun)[], style: 'paragraph' };
+			const node: TextNode = {
+				text: inline as (string | TextRun)[],
+				style: ctx.paragraphStyle
+			};
 			// Tight list items hide their paragraphs; the margin belongs to the item.
 			if (tok.hidden) return { text: inline as (string | TextRun)[], style: 'listItem' };
 			return elementNode(node, 'paragraph', t);
@@ -147,6 +155,8 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 		}
 
 		case 'blockquote_open': {
+			const calloutType = attrGet(tok, 'callout');
+			if (calloutType !== null) return callout(tok, calloutType, cur, ctx);
 			const body = renderBlocks(cur, ctx, 'blockquote_close');
 			if (cur.peek()?.type === 'blockquote_close') cur.next();
 			const node: TableNode = {
@@ -186,6 +196,52 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 		case 'pagebreak':
 			return { text: '', pageBreak: 'after' };
 
+		case 'callout_title_open': {
+			const inline = takeInline(cur, 'calloutTitle', ctx);
+			skipUntil(cur, 'callout_title_close');
+			const node: TextNode = { text: inline as (string | TextRun)[], style: 'calloutTitle' };
+			if (ctx.calloutColor) node.color = ctx.calloutColor;
+			return node;
+		}
+
+		case 'footnote_block_open': {
+			const previous = ctx.paragraphStyle;
+			ctx.paragraphStyle = 'footnote';
+			const body = renderBlocks(cur, ctx, 'footnote_block_close');
+			ctx.paragraphStyle = previous;
+			if (cur.peek()?.type === 'footnote_block_close') cur.next();
+			return footnoteSection(body, ctx);
+		}
+
+		case 'footnote_open': {
+			const id = (tok.meta as { id?: number } | undefined)?.id ?? 0;
+			const body = renderBlocks(cur, ctx, 'footnote_close');
+			if (cur.peek()?.type === 'footnote_close') cur.next();
+			// An `ol` of one, started at the note's number: pdfmake already knows
+			// how to hang the marker, and no separate gutter column is needed.
+			return {
+				ol: [body.length === 1 ? body[0] : ({ stack: body } as StackNode)],
+				start: id + 1,
+				style: 'footnote',
+				markerColor: t.elements.footnote.color,
+				margin: [t.list.indent, 0, 0, 0]
+			} as ListNode;
+		}
+
+		case 'footnote_anchor':
+			return null; // A backlink to the reference; a PDF has nothing to click.
+
+		case 'obsidian_comment_block': {
+			const c = t.obsidian.comments;
+			if (!c.show || !tok.content) return null;
+			return {
+				text: tok.content,
+				style: 'paragraph',
+				color: c.color,
+				italics: c.italics
+			} as TextNode;
+		}
+
 		case 'html_block':
 			ctx.warnings.add('Block-level HTML was dropped — the PDF renderer has no HTML support.');
 			return null;
@@ -199,6 +255,88 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 		default:
 			return null;
 	}
+}
+
+const NOTE_FALLBACK = { color: '#086ddd', background: '#e7f0fd', icon: '' };
+
+/**
+ * A callout is a blockquote the parser tagged with a type (§ obsidian.ts). The
+ * bar and tint colours vary per callout, so the layout is built inline rather
+ * than looked up by name in buildLayouts — pdfmake accepts either.
+ */
+function callout(open: Token, type: string, cur: Cursor, ctx: BlockContext): Content {
+	const t = ctx.theme;
+	const c = t.obsidian.callouts;
+	const spec = c.types[type] ?? c.types.note ?? NOTE_FALLBACK;
+
+	const previousColor = ctx.calloutColor;
+	ctx.calloutColor = spec.color;
+	let body = renderBlocks(cur, ctx, 'blockquote_close');
+	ctx.calloutColor = previousColor;
+	if (cur.peek()?.type === 'blockquote_close') cur.next();
+
+	// `> [!note]-` is collapsed in Obsidian. A PDF has no disclosure triangle, so
+	// the theme decides whether the body is printed or dropped.
+	if (attrGet(open, 'callout-fold') === '-' && !c.showCollapsedBody) body = body.slice(0, 1);
+
+	if (spec.icon && body.length && isTitleNode(body[0])) {
+		const title = body[0] as TextNode;
+		const runs = Array.isArray(title.text) ? title.text : [title.text];
+		title.text = [{ text: `${spec.icon} `, color: spec.color }, ...runs];
+	}
+
+	const node: TableNode = {
+		table: { widths: ['*'], body: [[{ stack: body.length ? body : [{ text: '' }] }]] },
+		layout: {
+			hLineWidth: () => 0,
+			vLineWidth: (i) => (i === 0 ? c.barWidth : 0),
+			hLineColor: () => spec.color,
+			vLineColor: () => spec.color,
+			paddingLeft: () => c.padding[0],
+			paddingTop: () => c.padding[1],
+			paddingRight: () => c.padding[2],
+			paddingBottom: () => c.padding[3],
+			fillColor: () => spec.background
+		},
+		margin: [...c.margin]
+	};
+	return elementNode(node, 'blockquote', t);
+}
+
+function isTitleNode(node: Content): boolean {
+	return typeof node === 'object' && node !== null && (node as TextNode).style === 'calloutTitle';
+}
+
+/** The endnotes markdown-it-footnote appends, with its own rule and heading. */
+function footnoteSection(body: Content[], ctx: BlockContext): Content {
+	const t = ctx.theme;
+	const f = t.obsidian.footnotes;
+	const stack: Content[] = [];
+
+	if (f.rule.enabled) {
+		stack.push({
+			canvas: [
+				{
+					type: 'line',
+					x1: 0,
+					y1: 0,
+					x2: ctx.contentWidth,
+					y2: 0,
+					lineWidth: f.rule.width,
+					lineColor: f.rule.color
+				}
+			],
+			margin: [0, 12, 0, 8]
+		});
+	}
+	if (f.heading.trim()) {
+		stack.push({ text: f.heading, style: 'h2', margin: [...t.elements.h2.margin] });
+	}
+	stack.push(...body);
+
+	const node: StackNode = { stack };
+	if (f.breakBefore) node.pageBreak = 'before';
+	return node;
 }
 
 function bulletForDepth(depth: number, t: Theme): string {
@@ -281,9 +419,10 @@ function codeBlock(tok: Token, ctx: BlockContext): Content {
 	const language = (tok.info ?? '').trim().split(/\s+/)[0] || null;
 	const source = tok.content.replace(/\n$/, '');
 
-	const runs: TextRun[] = t.code.syntaxHighlight
-		? highlightRuns(source, language, t)
-		: [{ text: source }];
+	const runs: TextRun[] = splitEmojiRuns(
+		t.code.syntaxHighlight ? highlightRuns(source, language, t) : [{ text: source }],
+		ctx.fonts.emoji
+	);
 
 	const codeCell: Content = { text: runs as (string | TextRun)[], style: 'codeBlock' };
 
@@ -362,5 +501,14 @@ export function makeContext(
 	contentWidth: number,
 	warnings: Set<string>
 ): BlockContext {
-	return { theme, fonts, images, contentWidth, warnings, listDepth: 0 };
+	return {
+		theme,
+		fonts,
+		images,
+		contentWidth,
+		warnings,
+		listDepth: 0,
+		paragraphStyle: 'paragraph',
+		calloutColor: null
+	};
 }

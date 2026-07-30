@@ -154,5 +154,18 @@
       "bolditalics": "bitter/BoldItalic.ttf"
     },
     "version": "c63e1471"
+  },
+  "noto-emoji": {
+    "name": "Noto Emoji",
+    "category": "emoji",
+    "license": "OFL-1.1",
+    "url": "https://github.com/google/fonts/tree/main/ofl/notoemoji",
+    "files": {
+      "normal": "noto-emoji/Regular.ttf",
+      "bold": "noto-emoji/Regular.ttf",
+      "italics": "noto-emoji/Regular.ttf",
+      "bolditalics": "noto-emoji/Regular.ttf"
+    },
+    "version": "76518915"
   }
 }

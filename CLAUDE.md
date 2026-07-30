@@ -79,12 +79,37 @@ so past the limit the app warns rather than refusing.
 
 | Path | Role |
 |---|---|
-| `src/lib/markdown/` | markdown-it setup, front matter, `<!-- pagebreak -->` plugin. `html: false` is non-negotiable — raw HTML must never reach the PDF. |
+| `src/lib/markdown/` | markdown-it setup, front matter, `<!-- pagebreak -->` plugin, `obsidian.ts`. `html: false` is non-negotiable — raw HTML must never reach the PDF. |
 | `src/lib/pdf/` | Token stream → pdfmake document definition. `buildDocDefinition` orchestrates; `blocks`/`inline`/`tables`/`cover`/`headerFooter`/`watermark`/`styles` each own one concern. |
 | `src/lib/fonts/` | `resolve.ts` per-slot resolution with fallback, `builtin`/`google`/`upload` loaders, `cache.ts` IndexedDB, `register.ts` → pdfmake VFS. |
 | `src/lib/theme/` | Zod schema, defaults, `migrate.ts` (version-keyed, must never throw), `io.ts` import/export, JSON presets. |
 | `src/lib/preview/` | pdf.js rendering, `scrollSync`/`lineMetrics`/`scrollAnchor`. |
 | `src/lib/stores/*.svelte.ts` | Svelte 5 rune classes, single instances exported at the bottom. `persist.ts` wraps localStorage; binaries go to IndexedDB. |
+
+### Obsidian Flavored Markdown
+
+`markdown/obsidian.ts` adds what OFM has beyond GFM and what no existing plugin
+covers: wikilinks/embeds, `%%comments%%`, `^block-ids` and callouts.
+`==highlights==` and footnotes come from markdown-it-mark and
+markdown-it-footnote — reimplementing markdown-it's delimiter and
+reference machinery would be strictly worse than two zero-dependency plugins by
+its own author.
+
+- **Every feature gates *parsing*, not styling.** `theme.obsidian.*.enabled` is
+  read by `parseOptionsFor()` and decides which rules are registered at all, so
+  a document that means something else by `[[` or `^id` keeps it literal. The
+  parser cache in `parse.ts` is keyed on those flags plus the marker.
+- **The callout rule runs `before('inline')`**, while the first paragraph is
+  still raw text. That is what lets the title keep its inline formatting: it is
+  retyped to `callout_title_*` and tokenised by the normal `inline` rule
+  afterwards. Running it later would mean re-tokenising by hand.
+- **`%` and `^` are markdown-it terminator characters**, so `%%…%%` and `^id`
+  work as ordinary inline rules. Only a comment spanning a *blank line* needs a
+  block rule, because no inline rule can see across one.
+- **A callout's layout object is built inline, not in `buildLayouts`** — bar and
+  tint colours vary per type, and `buildLayouts` returns one shared set.
+- **There is no vault**, so a wikilink is styled text, never a hyperlink, and an
+  embed prints a reference to its target.
 
 ### Scroll sync
 
@@ -116,8 +141,8 @@ a long code block or a forced page break; a test covers exactly that case.
 
 ## Fonts
 
-Twelve families are bundled as **static** instances, four faces each, ~3.4 MB total,
-fetched lazily and cached in IndexedDB. `scripts/build_fonts.py` produces them; the full
+Twelve text families are bundled as **static** instances, four faces each, ~3.4 MB total,
+plus an emoji family (see below), all fetched lazily and cached in IndexedDB. `scripts/build_fonts.py` produces them; the full
 procedure and rationale is in `scripts/subset-fonts.md`. Two things that bit here:
 
 - Upstream ships most of these as variable fonts, and pdfkit ignores variation axes — a
@@ -131,6 +156,24 @@ procedure and rationale is in `scripts/subset-fonts.md`. Two things that bit her
 Google Fonts are requested with `text=`. Plain `css2` answers with a dozen `@font-face`
 blocks split by `unicode-range`, and pdfkit can embed only one file — picking a block
 rendered every Latin character as tofu.
+
+A thirteenth family, **`noto-emoji`, is never a theme slot.** pdfmake binds one font per
+run and pdfkit has no glyph fallback, so an emoji in a Latin subset is a silent blank box.
+`pdf/emoji.ts` cuts runs at emoji boundaries and points those pieces at this family;
+`resolveFonts` loads it only when `hasEmoji(source)`, since it is 845 KB. Four things that
+matter when touching it:
+
+- **`sameFormat` in `inline.ts` compares `font`.** Emoji runs differ from their neighbours
+  by nothing else, so without it `coalesce` merges them straight back into the text family
+  and the split silently does nothing.
+- **Routing is deliberately conservative.** The theme draws `•`, `☑`, `✓` and box drawing
+  from the *text* font; only astral pictographs, `Emoji_Presentation=Yes` BMP codepoints
+  and VS16/keycap sequences move. A unit test pins both directions.
+- **Clusters, not codepoints.** ZWJ families, skin tones, flag pairs and keycaps have to
+  stay in one run or GSUB never sees the sequence.
+- It is the **monochrome** Noto Emoji; pdfkit cannot embed the colour (CBDT) build, so
+  glyphs inherit the run's fill colour. `build_fonts.py --emoji-only` rebuilds just this
+  family.
 
 ## Deployment
 
