@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Always do this
+
+- Ask if changes should commited once verified
+
 ## What this is
 
 A browser-only Markdown → themeable PDF generator. SvelteKit 5 (runes) + `adapter-static`,
