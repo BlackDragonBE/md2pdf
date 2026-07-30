@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { gunzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { clusters, emojiText, hasEmoji, splitEmojiRuns } from '../../src/lib/pdf/emoji';
+import { artworkKey, clusters, emojiText, hasEmoji, splitEmojiRuns } from '../../src/lib/pdf/emoji';
 import type { TextRun } from '../../src/lib/pdf/pdfmake-types';
 
 const EMOJI = 'E';
@@ -74,6 +77,38 @@ describe('hasEmoji', () => {
 
 	it('is false for an ordinary document', () => {
 		expect(hasEmoji('# Heading\n\nSome text with `code` and a [link](x).')).toBe(false);
+	});
+});
+
+/**
+ * Twemoji's filename convention. Getting this wrong does not throw — every
+ * lookup just misses and the document silently falls back to monochrome.
+ */
+describe('artworkKey', () => {
+	it.each([
+		['🔥', '1f525'],
+		['📊', '1f4ca'],
+		['⚠️', '26a0'], // the presentation selector is stripped
+		['🏋️', '1f3cb'],
+		['👨‍👩‍👧', '1f468-200d-1f469-200d-1f467'], // ZWJ is kept
+		['👍🏽', '1f44d-1f3fd'], // skin tone is kept
+		['🇧🇪', '1f1e7-1f1ea'], // flags are a pair of regional indicators
+		['1️⃣', '31-20e3'] // keycap keeps the base digit and 20e3
+	])('%s → %s', (cluster, key) => {
+		expect(artworkKey(cluster)).toBe(key);
+	});
+
+	it('matches the archive that ships in static/emoji', () => {
+		// The real set, so a rebuild that changed the naming fails here.
+		const set = JSON.parse(
+			Buffer.from(
+				gunzipSync(readFileSync(join(import.meta.dirname, '..', '..', 'static', 'emoji', 'twemoji.bin')))
+			).toString('utf8')
+		) as Record<string, string>;
+
+		for (const emoji of ['🔥', '📊', '⚠️', '🏋️', '👨‍👩‍👧', '👍🏽', '🇧🇪', '1️⃣', '✅', '🎯']) {
+			expect(set[artworkKey(emoji)], `${emoji} has no artwork`).toBeTruthy();
+		}
 	});
 });
 

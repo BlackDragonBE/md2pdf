@@ -190,6 +190,44 @@ matter when touching it:
   glyphs inherit the run's fill colour. `build_fonts.py --emoji-only` rebuilds just this
   family.
 
+## Inline artwork: the pdfmake patch
+
+`patches/pdfmake+0.2.23.patch` teaches pdfmake to flow an image or SVG **inline with**
+**text**. Colour emoji and mid-sentence `![alt](x)` images both depend on it entirely —
+read `patches/README.md` before touching any of it.
+
+- **There are two copies of pdfmake.** The browser loads `pdfmake/build/pdfmake.js`
+  (a 2.85 MB prebuilt webpack bundle); the golden tests load `pdfmake/src/printer.js`.
+  Patching only `src/` turns the whole Node suite green while the app stays broken. This
+  already happened once: a truncated hunk dropped the `else` that measures every ordinary
+  word, all 359 tests passed, and the browser could not lay out any text at all.
+  `tests/unit/pdfmakePatch.test.ts` therefore asserts the *surviving original behaviour*,
+  not the marker comment, and the E2E test is the only thing that exercises the bundle.
+- **The hunks must introduce no `require`.** In the bundle, imports are numeric webpack
+  module ids. Callers pass explicit `width` *and* `height` so nothing needs measuring.
+- **`pdfmake` is pinned exactly.** `npm install` rewrites it back to a caret whenever it
+  re-resolves the package; the guard test catches that.
+
+## Colour emoji
+
+PDF has no colour-font concept, so no emoji *font* can ever be coloured — pdfkit embeds
+outlines only. Emoji are drawn as **vector artwork** inline instead (Twemoji, CC-BY 4.0,
+attributed on the About page).
+
+- `scripts/build_emoji.py` packs 3,720 SVGs into `static/emoji/twemoji.bin` (~1.4 MB).
+  **One gzipped JSON blob, not a ZIP**: a ZIP deflates each entry separately and came out
+  at 3.9 MB for the same files. **Not loose SVGs** either — `globPatterns` includes `svg`,
+  so they would be precached on first visit, the opposite of lazy.
+- **The extension is `.bin`, not `.gz`, deliberately.** Static servers map `.gz` to
+  `Content-Encoding: gzip`, the browser transparently decompresses, and the gunzip then
+  fails on plain JSON. `artwork.ts` sniffs the gzip magic anyway.
+- **Artwork resolves main-side** and crosses on `RenderRequest`, like images, because
+  `buildDocDefinition` is synchronous by construction.
+- **`artworkKey` lives in `pdf/emoji.ts`, not `emoji/artwork.ts`** — the latter reaches
+  for `$app/paths`, which cannot be imported under vitest.
+- **The monochrome font is still there** and is the fallback when the archive is
+  unreachable or an emoji has no artwork, so emoji never regress to blank boxes.
+
 ## Deployment
 
 `.github/workflows/deploy.yml` builds with `BASE_PATH=/<repo>` and publishes to GitHub

@@ -1,0 +1,9 @@
+{
+  "file": "twemoji.bin",
+  "version": "8037da18",
+  "count": 3720,
+  "name": "Twemoji",
+  "license": "CC-BY-4.0",
+  "url": "https://github.com/jdecked/twemoji",
+  "source": "@twemoji/svg@15.0.0"
+}

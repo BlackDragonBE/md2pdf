@@ -19,6 +19,8 @@ export interface BuildInput {
 	theme: Theme;
 	meta: DocMeta;
 	images: Map<string, ResolvedImage>;
+	/** Emoji cluster -> SVG source, empty when colour artwork is unavailable. */
+	emojiArt: Map<string, string>;
 	/** Font role → the family name registered in the pdfmake font dictionary. */
 	fonts: FontMap;
 }
@@ -58,7 +60,7 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 	const pageSize = pageDimensions(t.page.size, t.page.orientation);
 	const contentWidth = pageSize.width - t.page.margins[0] - t.page.margins[2];
 
-	const ctx = makeContext(t, fonts, images, contentWidth, warnings);
+	const ctx = makeContext(t, fonts, images, input.emojiArt, contentWidth, warnings);
 	const body = renderTokens(tokens, ctx);
 
 	if (t.background.image?.fit === 'tile') {

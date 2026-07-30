@@ -47,6 +47,7 @@ export function generate(req: RenderRequest): Promise<GenerateResult> {
 		theme: req.theme,
 		meta: req.meta,
 		images: new Map(req.images),
+		emojiArt: new Map(req.emojiArt ?? []),
 		fonts: req.roles as FontMap
 	});
 

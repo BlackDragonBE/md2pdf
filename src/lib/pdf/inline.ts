@@ -1,6 +1,6 @@
 import type Token from 'markdown-it/lib/token.mjs';
-import type { Theme } from '../theme/schema';
-import { splitEmojiRuns } from './emoji';
+import type { ElementKey, Theme } from '../theme/schema';
+import { clusters, splitEmojiRuns } from './emoji';
 import { drawWidth, type ResolvedImage } from './images';
 import type { InlineArtwork, TextRun } from './pdfmake-types';
 import type { FontMap } from './styles';
@@ -10,6 +10,8 @@ export interface InlineContext {
 	fonts: FontMap;
 	warnings: Set<string>;
 	images: Map<string, ResolvedImage>;
+	/** Emoji cluster -> SVG source. Empty means fall back to the monochrome font. */
+	emojiArt: Map<string, string>;
 	/** Content column width in pt, for sizing inline images. */
 	contentWidth: number;
 }
@@ -161,20 +163,56 @@ export function renderInline(
 		}
 	}
 
-	// Last, so every branch above is covered by one call: emoji need their own
-	// family, and pdfmake binds a font per run (§ pdf/emoji.ts).
-	return splitEmojiContent(out, ctx.fonts.emoji);
+	// Last, so every branch above is covered by one call.
+	return splitEmojiContent(out, ctx);
 }
 
-/** `splitEmojiRuns` over a list that may also hold image nodes. */
-function splitEmojiContent(content: InlineContent[], font: string | undefined): InlineContent[] {
-	if (!font) return content;
+/**
+ * Route emoji out of the surrounding text run.
+ *
+ * Colour artwork wins when it is available, because PDF has no colour-font
+ * concept and an SVG drawn inline is the only way to get it. Otherwise the
+ * monochrome Noto Emoji family is used, which is what happens on a first visit
+ * while offline, or for an emoji Twemoji does not ship.
+ */
+function splitEmojiContent(content: InlineContent[], ctx: InlineContext): InlineContent[] {
+	const font = ctx.fonts.emoji;
+	const art = ctx.emojiArt;
+	if (!font && art.size === 0) return content;
+
 	const out: InlineContent[] = [];
 	for (const item of content) {
-		if ('text' in item) out.push(...splitEmojiRuns([item], font));
-		else out.push(item);
+		if (!('text' in item)) {
+			out.push(item);
+			continue;
+		}
+		for (const part of clusters(item.text)) {
+			if (!part.emoji) {
+				out.push({ ...item, text: part.text });
+				continue;
+			}
+			// One node per cluster, so a ZWJ family stays a single picture.
+			const svg = art.get(part.text);
+			if (svg) {
+				const size = emojiSize(item, ctx);
+				out.push({ svg, width: size, height: size });
+			} else if (font) {
+				out.push(...splitEmojiRuns([{ ...item, text: part.text }], font));
+			} else {
+				out.push({ ...item, text: part.text });
+			}
+		}
 	}
-	return out;
+	return coalesce(out);
+}
+
+/**
+ * Emoji are drawn at the run's font size, which is a square roughly the height
+ * of a capital plus its overshoot — close to how a text emoji glyph sits.
+ */
+function emojiSize(run: TextRun, ctx: InlineContext): number {
+	const style = run.style ? ctx.theme.elements[run.style as ElementKey] : undefined;
+	return run.fontSize ?? style?.size ?? ctx.theme.elements.paragraph.size;
 }
 
 /**

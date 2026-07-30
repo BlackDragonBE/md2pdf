@@ -1070,6 +1070,43 @@ test.describe('emoji', () => {
  * the only test that can prove the inline-artwork patch reached the bundle.
  * Without it a bundle-only regression ships with a green Node suite.
  */
+/**
+ * The archive is ~1.4 MB, so it must load only for a document that has an
+ * emoji in it, and only once. Mirrors the font-cache test above.
+ */
+test.describe('colour emoji artwork', () => {
+	const archiveRequests = (page: Page) =>
+		page.evaluate(() =>
+			performance
+				.getEntriesByType('resource')
+				.map((e) => e.name)
+				.filter((n) => n.includes('twemoji'))
+		);
+
+	test('is not fetched for a document without emoji', async ({ page }) => {
+		await setSource(page, '# Plain heading\n\nNothing special at all.');
+		expect(await archiveRequests(page)).toHaveLength(0);
+	});
+
+	test('is fetched once, then served from cache, and reaches the PDF', async ({ page }) => {
+		await setSource(page, 'Progress \u{1F525} report.');
+		await expect.poll(() => archiveRequests(page)).not.toHaveLength(0);
+		expect(await archiveRequests(page)).toHaveLength(1);
+
+		const bytes = await download(page);
+		const pdf = await readPdf(bytes);
+		expect(pdf.pages[0]).toContain('Progress');
+		expect(pdf.pages[0]).toContain('report');
+		// Vector artwork, so still no raster in the document.
+		expect(bytes.includes(Buffer.from('/Subtype /Image'))).toBe(false);
+		await expect(page.locator('.banner')).toHaveCount(0);
+
+		// Second render of the same document must not refetch it.
+		await setSource(page, 'Progress \u{1F525} report, edited.');
+		expect(await archiveRequests(page)).toHaveLength(1);
+	});
+});
+
 test('a mid-sentence image reaches the downloaded PDF', async ({ page }) => {
 	const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
 	await setSource(page, `Before ![alt](${png}) after it.`);

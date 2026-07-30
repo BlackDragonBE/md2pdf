@@ -5,6 +5,7 @@ import { resolveFonts } from '../fonts/resolve';
 import { buildVfs } from '../fonts/register';
 import { EMPTY_META, type DocMeta } from '../markdown/frontmatter';
 import { parse, parseOptionsFor } from '../markdown/parse';
+import { resolveEmojiArtwork } from '../emoji/artwork';
 import { hasEmoji } from '../pdf/emoji';
 import { collectImageSources, resolveImages } from '../pdf/images';
 import type { FontDictionary, Vfs } from '../pdf/pdfmake-types';
@@ -110,6 +111,12 @@ class PdfStore {
 			const { theme, source, metaOverrides } = input;
 			const parsed = parse(source, parseOptionsFor(theme), metaOverrides);
 			const imageResult = await resolveImages(collectImageSources(parsed.tokens));
+			// Colour emoji artwork rides the same channel as images: resolved on the
+			// main thread and handed to the worker, because buildDocDefinition is
+			// synchronous by construction. Never throws — an unreachable archive
+			// just means the monochrome font is used instead.
+			const emojiWarnings: string[] = [];
+			const emojiArt = await resolveEmojiArtwork(source, emojiWarnings);
 			const fontBundle = await this.#fontBundle(theme, documentCharset(source), hasEmoji(source));
 
 			if (id !== this.#latestId) return; // superseded while awaiting
@@ -122,6 +129,7 @@ class PdfStore {
 				theme,
 				meta: parsed.meta,
 				images: [...imageResult.images],
+				emojiArt: [...emojiArt],
 				roles: fontBundle.roles,
 				vfs: fontBundle.vfs,
 				fonts: fontBundle.fonts
@@ -130,6 +138,7 @@ class PdfStore {
 			const preWarnings = [
 				...parsed.warnings,
 				...imageResult.warnings,
+				...emojiWarnings,
 				...fontBundle.warnings
 			];
 

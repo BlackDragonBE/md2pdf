@@ -44,6 +44,8 @@ export interface RenderOptions {
 	theme?: Theme;
 	meta?: Partial<DocMeta>;
 	images?: Map<string, ResolvedImage>;
+	/** Emoji cluster → SVG. Injected, so golden tests never touch the network. */
+	emojiArt?: Map<string, string>;
 }
 
 export interface RenderedPdf {
@@ -80,6 +82,7 @@ export async function renderMarkdown(
 		theme,
 		meta: parsed.meta,
 		images: options.images ?? new Map(),
+		emojiArt: options.emojiArt ?? new Map(),
 		fonts: roles
 	});
 

@@ -13,6 +13,7 @@ function ctx(theme: Theme = cloneDefaultTheme()): InlineContext {
 		fonts: { body: 'B', heading: 'H', mono: 'M' },
 		warnings: new Set<string>(),
 		images: new Map(),
+		emojiArt: new Map(),
 		contentWidth: 483
 	};
 }

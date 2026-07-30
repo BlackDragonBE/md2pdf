@@ -22,6 +22,8 @@ export interface RenderRequest {
 	theme: Theme;
 	meta: DocMeta;
 	images: [string, ResolvedImage][];
+	/** Emoji cluster -> SVG source. Resolved main-side; see emoji/artwork.ts. */
+	emojiArt: [string, string][];
 	roles: FontMap;
 	vfs: Vfs;
 	fonts: FontDictionary;

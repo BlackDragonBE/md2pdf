@@ -137,6 +137,25 @@ export function hasEmoji(text: string): boolean {
 }
 
 /**
+ * The colour-artwork key for one cluster, in Twemoji's filename convention:
+ * lowercase hex codepoints joined by `-`.
+ *
+ * Twemoji strips the emoji-presentation selector — `⚠️` is `26a0`, not
+ * `26a0-fe0f` — but keeps everything else, including ZWJ, skin-tone modifiers,
+ * regional indicators and the keycap `20e3`.
+ *
+ * Lives here rather than in `emoji/artwork.ts` because that module reaches for
+ * `$app/paths`, which cannot be imported under vitest.
+ */
+export function artworkKey(cluster: string): string {
+	return [...cluster]
+		.map((c) => c.codePointAt(0) as number)
+		.filter((cp) => cp !== VS16)
+		.map((cp) => cp.toString(16))
+		.join('-');
+}
+
+/**
  * Text for a node that binds a single font of its own — a header, footer or
  * cover block. Stays a plain string unless it actually holds emoji, so the
  * common case adds no nodes.

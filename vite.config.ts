@@ -36,7 +36,14 @@ export default defineConfig({
 				// `webmanifest` is deliberately absent: the plugin adds its own entry
 				// for it, and globbing it too yields two entries for the same URL with
 				// different revisions, which makes workbox refuse to install.
-				globPatterns: ['**/*.{js,css,html,ico,png,svg}', '**/fonts/manifest.json'],
+				// The emoji archive is deliberately absent: it is ~1.4 MB and only a
+				// document that actually contains an emoji ever needs it. Its
+				// manifest is tiny, so that one is precached.
+				globPatterns: [
+					'**/*.{js,css,html,ico,png,svg}',
+					'**/fonts/manifest.json',
+					'**/emoji/manifest.json'
+				],
 				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
 				// See build-config/precacheTransform.ts for why this is necessary.
 				manifestTransforms: [(entries) => transformPrecacheManifest(entries)],
@@ -54,6 +61,11 @@ export default defineConfig({
 						urlPattern: /\/fonts\/(?!inter\/).*\.ttf$/,
 						handler: 'CacheFirst',
 						options: { cacheName: 'md2pdf-fonts', expiration: { maxEntries: 60 } }
+					},
+					{
+						urlPattern: /\/emoji\/.*\.bin$/,
+						handler: 'CacheFirst',
+						options: { cacheName: 'md2pdf-emoji', expiration: { maxEntries: 2 } }
 					},
 					{
 						urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,

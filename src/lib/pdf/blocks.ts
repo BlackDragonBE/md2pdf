@@ -498,6 +498,7 @@ export function makeContext(
 	theme: Theme,
 	fonts: FontMap,
 	images: Map<string, ResolvedImage>,
+	emojiArt: Map<string, string>,
 	contentWidth: number,
 	warnings: Set<string>
 ): BlockContext {
@@ -505,6 +506,7 @@ export function makeContext(
 		theme,
 		fonts,
 		images,
+		emojiArt,
 		contentWidth,
 		warnings,
 		listDepth: 0,

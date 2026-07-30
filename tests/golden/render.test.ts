@@ -383,6 +383,41 @@ describe('code blocks', () => {
  * text — because pdfmake reserves no width for a non-text node inside a `text`
  * array and never draws it. See patches/pdfmake+0.2.23.patch.
  */
+/**
+ * PDF has no colour-font concept, so colour emoji can only be artwork drawn
+ * inline - see patches/pdfmake+0.2.23.patch. Artwork is injected here rather
+ * than fetched, so these never touch the network.
+ */
+describe('colour emoji', () => {
+	const FIRE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#F4900C" d="M18 2s10 8 10 20a10 10 0 0 1-20 0C8 10 18 2 18 2z"/></svg>';
+	const art = new Map([['\u{1F525}', FIRE]]);
+
+	it('draws the artwork and keeps the sentence on one line', async () => {
+		const { buffer } = await renderMarkdown('Before \u{1F525} after it.', { emojiArt: art });
+		const out = await extract(buffer);
+
+		// Vector, not raster: this is why SVG artwork beat a PNG sprite sheet.
+		expect(buffer.includes(Buffer.from('/Subtype /Image'))).toBe(false);
+
+		const words = out.items[0].filter((i) => i.str.trim());
+		const before = words.find((i) => i.str.includes('Before'));
+		const after = words.find((i) => i.str.includes('after'));
+		expect(after!.transform[5]).toBeCloseTo(before!.transform[5], 1);
+		expect(out.pageCount).toBe(1);
+	});
+
+	it('falls back to the monochrome font when artwork is missing', async () => {
+		// No artwork supplied for this one, so it must still render as a glyph.
+		const out = await renderAndExtract('Chart \u{1F4CA} here.', { emojiArt: art });
+		expect(out.text).toContain('\u{1F4CA}');
+	});
+
+	it('leaves the theme own glyphs in the text font', async () => {
+		const out = await renderAndExtract('Bullets • ☑ ─ and \u{1F525}.', { emojiArt: art });
+		for (const glyph of ['\u2022', '\u2611', '\u2500']) expect(out.text).toContain(glyph);
+	});
+});
+
 describe('mid-sentence images', () => {
 	const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
 	const images = new Map<string, ResolvedImage>([

@@ -85,13 +85,31 @@ export function deleteUpload(hash: string): Promise<void> {
 	}, undefined);
 }
 
-/** Binaries over 256 KB belong here, not in localStorage (§10). */
-export function getAsset(key: string): Promise<string | undefined> {
-	return safe((d) => d.get(STORE_ASSETS, key), undefined);
+/**
+ * Binaries over 256 KB belong here, not in localStorage (§10).
+ *
+ * Values are data URIs or raw bytes — the emoji archive is stored compressed,
+ * as the ~1.4 MB it arrives as rather than the 8 MB it expands to.
+ */
+export function getAsset<T extends string | ArrayBuffer = string>(
+	key: string
+): Promise<T | undefined> {
+	return safe((d) => d.get(STORE_ASSETS, key) as Promise<T | undefined>, undefined);
 }
 
-export function putAsset(key: string, dataUri: string): Promise<void> {
+export function putAsset(key: string, value: string | ArrayBuffer): Promise<void> {
 	return safe(async (d) => {
-		await d.put(STORE_ASSETS, dataUri, key);
+		await d.put(STORE_ASSETS, value, key);
+	}, undefined);
+}
+
+/** Asset cache keys, for pruning superseded versions. */
+export function listAssetKeys(): Promise<string[]> {
+	return safe(async (d) => (await d.getAllKeys(STORE_ASSETS)).map(String), []);
+}
+
+export function removeAsset(key: string): Promise<void> {
+	return safe(async (d) => {
+		await d.delete(STORE_ASSETS, key);
 	}, undefined);
 }

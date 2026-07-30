@@ -58,10 +58,9 @@
 		A thirteenth, Noto Emoji, is never a font slot you can pick. pdfmake binds one font per run of
 		text and pdfkit has no glyph fallback, so an emoji in a Latin-subset family is a blank box.
 		Runs containing emoji are cut out and pointed at this family instead, and it is fetched only
-		for a document that has emoji in it. It is the <em>monochrome</em> Noto Emoji — pdfkit embeds
-		outlines and cannot render the colour build — so the glyphs take the colour of the text
-		around them.
+		for a document that has emoji in it.
 	</p>
+
 	<p>
 		Most of these families are published upstream only as variable fonts, which pdfkit renders at
 		their default instance — a "Bold" request would silently come out Regular — so each face is
@@ -92,6 +91,26 @@
 			{/each}
 		</tbody>
 	</table>
+
+	<h2>Emoji</h2>
+	<p>
+		Emoji render in <strong>colour</strong>, as vector artwork rather than glyphs. A PDF cannot
+		carry a colour font at all — the format has no such concept, and pdfkit embeds outlines only
+		— so each emoji is drawn into the page as a small picture instead. That also means they stay
+		sharp at any zoom or print size, and the document embeds no raster images.
+	</p>
+	<p>
+		The artwork is
+		<a href="https://github.com/jdecked/twemoji" rel="noreferrer">Twemoji</a>, 3,720 emoji packed
+		into a single ~1.4 MB archive that is fetched the first time you use one and then cached. A
+		document with no emoji never downloads it. Where a sequence has no artwork — or on a first
+		visit while offline — the monochrome Noto Emoji font above is used instead, so emoji never
+		fall back to blank boxes.
+	</p>
+	<p class="attribution">
+		Twemoji artwork is © Twitter and the Twemoji contributors, licensed
+		<a href="https://creativecommons.org/licenses/by/4.0/" rel="noreferrer">CC-BY 4.0</a>.
+	</p>
 
 	<h2>Built with</h2>
 	<ul>
@@ -148,6 +167,10 @@
 	.back {
 		margin: 0 0 20px;
 		font-size: 12px;
+	}
+	.attribution {
+		font-size: 0.9em;
+		color: var(--text-dim);
 	}
 	.error {
 		color: var(--error);

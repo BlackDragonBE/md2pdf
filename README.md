@@ -16,14 +16,14 @@ work is saved in the browser, so closing the tab does not lose it.
   typography, colours and spacing, background colour or image, watermark, cover
   page, running header and footer, and page-break rules.
 - **Twelve bundled fonts**, or upload your own TTF/OTF, or pull a family from
-  Google Fonts. Emoji render too, from a bundled monochrome family.
+  Google Fonts. Emoji render in colour, as vector artwork.
 - **Portable themes.** Export as JSON and share it; hand-editing is fine.
   Five presets ship in the box.
 - **Two-way scroll sync** that follows the actual content, not a percentage.
 - **Works offline.** Installable as a PWA; after the first visit it needs no
   network at all.
 - Front matter, tables, task lists, syntax-highlighted code fences, pasted
-  images, and manual page breaks.
+  images, mid-sentence images, and manual page breaks.
 - **Obsidian Flavored Markdown** — callouts, wikilinks, embeds, highlights,
   footnotes, comments and block identifiers, each themeable and each
   individually switchable off.
@@ -92,13 +92,17 @@ then cached, so a second visit downloads nothing. You can also upload a TTF or
 OTF, or fetch a family from Google Fonts — that last one needs a connection the
 first time and is marked experimental.
 
-**Emoji** work anywhere text does — headings, tables, callouts, code fences, the
-header and footer. They come from a bundled copy of Noto Emoji that is fetched
-only the first time you use an emoji, so a document without any downloads
-nothing extra. It is the monochrome build, which means emoji take the colour of
-the surrounding text rather than their own; pdfkit cannot embed colour emoji
-fonts. Sequences behave — family emoji, skin tones, flags and keycaps all render
-as one glyph.
+**Emoji** work anywhere text does — headings, tables, callouts, code fences,
+the header and footer — and they are in **colour**. PDF has no colour-font
+concept, so they are drawn as vector artwork (Twemoji) rather than glyphs,
+which also means they stay sharp at any zoom or print size. The set is fetched
+the first time you use an emoji and cached, so a document without any downloads
+nothing extra. Sequences behave: family emoji, skin tones, flags and keycaps
+each render as one picture. Offline before the set has ever loaded, emoji fall
+back to a bundled monochrome font rather than disappearing.
+
+**Mid-sentence images.** `![alt](…)` works inside a paragraph, flowing and
+wrapping with the text around it, not just on a line of its own.
 
 **Metadata.** Title, subtitle, author and date come from YAML front matter if the
 document has any, and can be filled in from the metadata panel otherwise. They
@@ -150,3 +154,6 @@ and memory-hungry, and the app will warn you. The download is unaffected.
 
 Application code: MIT. The bundled fonts keep their own licences (all OFL-1.1) —
 each is committed beside its family and listed on the app's About page.
+
+Colour emoji artwork is [Twemoji](https://github.com/jdecked/twemoji), licensed
+**CC-BY 4.0** by Twitter and the Twemoji contributors.
