@@ -25,6 +25,9 @@ const BASE_RANGES = [
 	'₠₡₢₣₤₥₦₧₨₩₪₫€₭₮₯₰₱₲₳₴₵₹₺₽', // currency
 	'™©®°±×÷µ¶§', // symbols
 	'←↑→↓↔↕⇐⇒', // arrows
+	// − is a real minus sign, not the ASCII hyphen, and ≈ turns up in anything
+	// with a calculation in it. Keep in step with MATH in scripts/build_fonts.py.
+	'−≈≠≤≥√∞≡∑∏∫∂∆·', // mathematical operators
 	'─│┌┐└┘├┤┬┴┼━┃┏┓┗┛┣┫┳┻╋═║╔╗╚╝╠╣╦╩╬', // box drawing, for tree diagrams
 	'■□▪▫▬▭▮▯▲△▶▷▼▽◀◁◆◇○●◦◘◙', // geometric shapes, for list bullets
 	'☐☑☒✓✔✕✖✗✘', // ballot boxes and check marks, for task lists

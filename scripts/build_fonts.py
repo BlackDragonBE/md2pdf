@@ -49,11 +49,16 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "static" / "fonts"
 
 # Latin + Latin Extended-A, general punctuation, currency, trademark, arrows,
-# box drawing (tree diagrams), geometric shapes (list bullets) and ballot boxes
-# (task list glyphs).
+# mathematical operators, box drawing (tree diagrams), geometric shapes (list
+# bullets) and ballot boxes (task list glyphs).
+#
+# The whole arrow and mathematical-operator blocks are requested, not a
+# hand-picked few: subsetting only keeps what the family actually ships, so
+# asking wide costs nothing for a family that has little and saves the next
+# person from filing "≈ renders as a box".
 UNICODES = (
     "U+0000-00FF,U+0100-017F,U+2000-206F,U+20A0-20BF,U+2122,"
-    "U+2190-2193,U+2500-257F,U+25A0-25FF,U+2610,U+2611,U+2713,U+2714"
+    "U+2190-21FF,U+2200-22FF,U+2500-257F,U+25A0-25FF,U+2610,U+2611,U+2713,U+2714"
 )
 LAYOUT_FEATURES = ["kern", "liga", "clig"]
 
@@ -66,10 +71,20 @@ SYMBOLS = [0x2022, 0x25E6, 0x25AA, 0x2610, 0x2611, 0x2713]
 # upstream; everywhere else they render as blank boxes.
 BOX_DRAWING = [0x2500, 0x2502, 0x250C, 0x2510, 0x2514, 0x2518, 0x251C, 0x2524, 0x252C, 0x2534, 0x253C]
 
+# Mathematical operators and the compound arrows. `−` (U+2212) is a real minus
+# sign, not the ASCII hyphen, and `≈` is what any document with a calculation in
+# it uses; neither was in the subset ranges at all, so every family rendered
+# them as blank boxes. Same failure as the box-drawing glyphs, different block.
+MATH = [
+    0x2212, 0x2248, 0x2260, 0x2264, 0x2265, 0x221A, 0x221E, 0x2261,
+    0x2211, 0x220F, 0x222B, 0x2202, 0x2206, 0x2194, 0x21D0, 0x21D2,
+]
+
 # Which family donates which group. Box drawing comes from a monospace face so
-# the segments share one advance width and joins line up in a run.
-DONORS = [("source-sans-3", SYMBOLS), ("jetbrains-mono", BOX_DRAWING)]
-REQUIRED_SYMBOLS = SYMBOLS + BOX_DRAWING
+# the segments share one advance width and joins line up in a run. Source Sans 3
+# carries every glyph in MATH natively, which is why it donates those too.
+DONORS = [("source-sans-3", SYMBOLS + MATH), ("jetbrains-mono", BOX_DRAWING)]
+REQUIRED_SYMBOLS = SYMBOLS + BOX_DRAWING + MATH
 
 FACES = [
     ("normal", "Regular", 400, False),

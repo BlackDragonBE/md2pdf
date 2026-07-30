@@ -10,7 +10,7 @@
       "italics": "inter/Italic.ttf",
       "bolditalics": "inter/BoldItalic.ttf"
     },
-    "version": "896d0257"
+    "version": "e9c58e57"
   },
   "source-sans-3": {
     "name": "Source Sans 3",
@@ -23,7 +23,7 @@
       "italics": "source-sans-3/Italic.ttf",
       "bolditalics": "source-sans-3/BoldItalic.ttf"
     },
-    "version": "15e046fc"
+    "version": "562dd570"
   },
   "lato": {
     "name": "Lato",
@@ -36,7 +36,7 @@
       "italics": "lato/Italic.ttf",
       "bolditalics": "lato/BoldItalic.ttf"
     },
-    "version": "64c24bb1"
+    "version": "851066f1"
   },
   "work-sans": {
     "name": "Work Sans",
@@ -49,7 +49,7 @@
       "italics": "work-sans/Italic.ttf",
       "bolditalics": "work-sans/BoldItalic.ttf"
     },
-    "version": "5d5da8e1"
+    "version": "472f61d0"
   },
   "source-serif-4": {
     "name": "Source Serif 4",
@@ -62,7 +62,7 @@
       "italics": "source-serif-4/Italic.ttf",
       "bolditalics": "source-serif-4/BoldItalic.ttf"
     },
-    "version": "5da9dd80"
+    "version": "b95f0cc3"
   },
   "eb-garamond": {
     "name": "EB Garamond",
@@ -75,7 +75,7 @@
       "italics": "eb-garamond/Italic.ttf",
       "bolditalics": "eb-garamond/BoldItalic.ttf"
     },
-    "version": "7710ed86"
+    "version": "628a4537"
   },
   "merriweather": {
     "name": "Merriweather",
@@ -88,7 +88,7 @@
       "italics": "merriweather/Italic.ttf",
       "bolditalics": "merriweather/BoldItalic.ttf"
     },
-    "version": "97382b2f"
+    "version": "d6da4ccd"
   },
   "lora": {
     "name": "Lora",
@@ -101,7 +101,7 @@
       "italics": "lora/Italic.ttf",
       "bolditalics": "lora/BoldItalic.ttf"
     },
-    "version": "d5f81b6b"
+    "version": "66c1f69d"
   },
   "jetbrains-mono": {
     "name": "JetBrains Mono",
@@ -114,7 +114,7 @@
       "italics": "jetbrains-mono/Italic.ttf",
       "bolditalics": "jetbrains-mono/BoldItalic.ttf"
     },
-    "version": "43901f08"
+    "version": "1d855b0b"
   },
   "ibm-plex-mono": {
     "name": "IBM Plex Mono",
@@ -127,7 +127,7 @@
       "italics": "ibm-plex-mono/Italic.ttf",
       "bolditalics": "ibm-plex-mono/BoldItalic.ttf"
     },
-    "version": "0cd6ea37"
+    "version": "b8c34454"
   },
   "playfair-display": {
     "name": "Playfair Display",
@@ -140,7 +140,7 @@
       "italics": "playfair-display/Italic.ttf",
       "bolditalics": "playfair-display/BoldItalic.ttf"
     },
-    "version": "6e63bef1"
+    "version": "10d516f7"
   },
   "bitter": {
     "name": "Bitter",
@@ -153,7 +153,7 @@
       "italics": "bitter/Italic.ttf",
       "bolditalics": "bitter/BoldItalic.ttf"
     },
-    "version": "c63e1471"
+    "version": "dcaef743"
   },
   "noto-emoji": {
     "name": "Noto Emoji",
@@ -166,6 +166,6 @@
       "italics": "noto-emoji/Regular.ttf",
       "bolditalics": "noto-emoji/Regular.ttf"
     },
-    "version": "76518915"
+    "version": "41181f9a"
   }
 }

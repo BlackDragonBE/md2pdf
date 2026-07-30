@@ -158,6 +158,15 @@ procedure and rationale is in `scripts/subset-fonts.md`. Two things that bit her
   proportional families have box drawing (`tree` diagrams), so subsetting cannot retain
   what was never there. The build grafts them in from Source Sans 3 / JetBrains Mono,
   scaled to the host family's upem.
+- **A glyph missing from `UNICODES` is invisible until someone reports a blank box.**
+  The mathematical-operator block was never requested, so `−` (U+2212, the real minus
+  sign — not the ASCII hyphen) and `≈` rendered as tofu in every family, in any document
+  containing a calculation. The fix was to ask for the whole `U+2190-21FF` and
+  `U+2200-22FF` blocks rather than a hand-picked few: subsetting keeps only what the
+  family actually ships, so asking wide costs almost nothing (the twelve families did
+  not grow measurably). `MATH` in the build script is the set every family must end up
+  with, grafted where absent; a golden test asserts all sixteen glyphs in all twelve
+  families. Keep `charset.ts`'s `BASE_RANGES` in step, or Google-font users lose them.
 
 Google Fonts are requested with `text=`. Plain `css2` answers with a dozen `@font-face`
 blocks split by `unicode-range`, and pdfkit can embed only one file — picking a block

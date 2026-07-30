@@ -393,6 +393,42 @@ describe('generated documents are text, not raster', () => {
  * Box-drawing characters were absent from the subset ranges entirely, so every
  * `tree`-style diagram rendered as blank boxes in every family.
  */
+/**
+ * `−` is a real minus sign, not the ASCII hyphen, and `≈` is what any
+ * document with a calculation in it uses. Neither was in the subset ranges, so a
+ * line like "BMR ≈ 10(87) − 5(37)" came out with blank boxes in it.
+ */
+describe('mathematical operators', () => {
+	const ids = textFamilyIds();
+	const MATH = '−≈≠≤≥√∞≡∑∏∫∂∆↔⇐⇒';
+
+	it.each(ids)('%s renders every operator', async (id) => {
+		const theme = cloneDefaultTheme();
+		theme.fonts.body = { source: { kind: 'builtin', id }, fallback: id };
+		theme.fonts.heading = { source: { kind: 'builtin', id }, fallback: id };
+		theme.fonts.mono = { source: { kind: 'builtin', id }, fallback: id };
+
+		const out = await renderAndExtract(`Math: ${MATH}`, { theme });
+		for (const glyph of MATH) {
+			expect(out.text, `${id} lost ${glyph}`).toContain(glyph);
+		}
+	});
+
+	it('renders a real calculation the way it was written', async () => {
+		const out = await renderAndExtract(
+			[
+				'- **BMR** ≈ 10(87) + 6.25(178) − 5(37) + 5 = **1,813 kcal/day**',
+				'- Deficit of ±150 kcal, 3–4×/week, ~2,490 kcal/day'
+			].join('\n')
+		);
+		expect(out.text).toContain('≈');
+		expect(out.text).toContain('−');
+		expect(out.text).toContain('±');
+		expect(out.text).toContain('×');
+		expect(out.text).toContain('1,813 kcal/day');
+	});
+});
+
 describe('box drawing', () => {
 	const ids = textFamilyIds();
 

@@ -73,7 +73,9 @@ use this mechanism.
 python - <<'PY'
 from fontTools.ttLib import TTFont
 from pathlib import Path
-need = [0x2022, 0x25E6, 0x25AA, 0x2610, 0x2611, 0x2713, 0x00E9, 0x0161, 0x2014, 0x201C, 0x20AC]
+need = [0x2022, 0x25E6, 0x25AA, 0x2610, 0x2611, 0x2713, 0x00E9, 0x0161, 0x2014, 0x201C, 0x20AC,
+        0x2212, 0x2248, 0x2260, 0x2264, 0x2265, 0x221A, 0x221E, 0x2261, 0x2211, 0x220F,
+        0x222B, 0x2202, 0x2206, 0x2194, 0x21D0, 0x21D2]
 bad = []
 for d in sorted(p for p in Path('static/fonts').iterdir() if p.is_dir()):
     if d.name == 'noto-emoji':
@@ -90,6 +92,25 @@ PY
 It must print `PROBLEMS: none`. Then load the app and confirm that
 `theme.list.bulletChars` and the task-list glyphs render in every family — the
 cmap check proves the codepoint is mapped, not that the outline is sensible.
+
+## Adding a glyph
+
+`UNICODES` is the whole contract. A codepoint outside it is dropped by the
+subsetter and renders as a blank box, with nothing to warn you — the
+mathematical-operator block was missing for exactly this reason, so `−` and `≈`
+were tofu in every family until someone reported it.
+
+Prefer asking for a **whole block** over a hand-picked few. Subsetting keeps only
+what the family actually ships, so a wide request costs nothing for a family that
+has little of it: adding `U+2200-22FF` (256 codepoints) left the twelve families
+the same size to within rounding.
+
+If every family must have the glyph, add it to `MATH`, `SYMBOLS` or
+`BOX_DRAWING` so the graft pass fills in the families that lack it upstream, and
+check a donor actually has it first. Then mirror the change in
+`src/lib/fonts/charset.ts` — that list is what Google-tier fonts are subsetted to,
+and the two drifting apart means a glyph that works on a bundled font and not on
+a Google one.
 
 ## Adding a family
 
