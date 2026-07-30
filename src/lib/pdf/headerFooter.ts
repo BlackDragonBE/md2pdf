@@ -37,7 +37,7 @@ export function formatDate(iso: string, locale: string): string {
 	try {
 		return new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(d);
 	} catch {
-		return new Intl.DateTimeFormat('en-GB', { dateStyle: 'long' }).format(d);
+		return new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(d);
 	}
 }
 

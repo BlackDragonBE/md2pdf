@@ -216,7 +216,7 @@ export const ThemeSchema = z.object({
 		tableHeader: ElementStyle
 	}),
 
-	locale: z.string().default('en-GB')
+	locale: z.string().default('en-US')
 });
 
 export type Theme = z.infer<typeof ThemeSchema>;

@@ -186,7 +186,7 @@ export const DEFAULT_THEME: Theme = {
 		tableHeader: el({ size: 9.5, bold: true, color: '#111111', margin: [0, 0, 0, 0] })
 	},
 
-	locale: 'en-GB'
+	locale: 'en-US'
 };
 
 /** Deep structural clone; themes are plain JSON so this is safe. */

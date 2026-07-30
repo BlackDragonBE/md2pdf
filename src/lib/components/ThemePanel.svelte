@@ -242,15 +242,21 @@
 				onchange={(margins) => edit((d) => (d.page.margins = margins))}
 			/>
 		</Field>
-		<Field label="Locale" hint="Used to format {'{{date}}'}">
+		<Field
+			label="Locale"
+			hint="A BCP 47 tag such as en-US, en-GB or nl-BE. Its only effect is how the {'{{date}}'} token is spelled in the header and footer templates."
+		>
 			<input
 				type="text"
 				spellcheck="false"
 				value={t.locale}
-				onchange={(e) => edit((d) => (d.locale = e.currentTarget.value || 'en-GB'))}
+				onchange={(e) => edit((d) => (d.locale = e.currentTarget.value || 'en-US'))}
 			/>
 		</Field>
-		<Field label="Page-break marker">
+		<Field
+			label="Page-break marker"
+			hint="Add this line of text to your Markdown to start a new page in the PDF."
+		>
 			<input
 				type="text"
 				spellcheck="false"

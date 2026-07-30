@@ -52,21 +52,21 @@ describe('substitute', () => {
 
 describe('formatDate', () => {
 	it('formats an ISO date with the theme locale', () => {
-		expect(formatDate('2024-03-05', 'en-GB')).toBe('5 March 2024');
+		expect(formatDate('2024-03-05', 'en-US')).toBe('March 5, 2024');
 		expect(formatDate('2024-03-05', 'de-DE')).toBe('5. März 2024');
 	});
 
-	it('falls back to en-GB for an invalid locale', () => {
-		expect(formatDate('2024-03-05', 'not a locale')).toBe('5 March 2024');
+	it('falls back to en-US for an invalid locale', () => {
+		expect(formatDate('2024-03-05', 'not a locale')).toBe('March 5, 2024');
 	});
 
 	it('returns unparseable input unchanged', () => {
-		expect(formatDate('sometime', 'en-GB')).toBe('sometime');
+		expect(formatDate('sometime', 'en-US')).toBe('sometime');
 	});
 
 	it('uses today when the date is empty', () => {
-		expect(formatDate('', 'en-GB')).toBe(
-			new Intl.DateTimeFormat('en-GB', { dateStyle: 'long' }).format(new Date())
+		expect(formatDate('', 'en-US')).toBe(
+			new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date())
 		);
 	});
 });

@@ -162,7 +162,7 @@ describe('cover page and numbering', () => {
 		expect(out.pages[0]).toContain('T');
 		expect(out.pages[0]).toContain('S');
 		expect(out.pages[0]).toContain('A');
-		expect(out.pages[0]).toContain('5 March 2024');
+		expect(out.pages[0]).toContain('March 5, 2024');
 	});
 });
 

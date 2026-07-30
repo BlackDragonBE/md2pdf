@@ -23,8 +23,10 @@
 	}
 </script>
 
-<div class="field">
-	<label for={fieldId} title={hint}>{label}</label>
+<!-- The hint sits on the row, not just the label: hovering the control you are
+     about to change is the moment you want the explanation. -->
+<div class="field" title={hint}>
+	<label for={fieldId}>{label}</label>
 	<div class="control" use:labelled={fieldId}>{@render children()}</div>
 </div>
 

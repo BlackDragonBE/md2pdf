@@ -282,7 +282,7 @@
 	</main>
 
 	<footer>
-		<span>Everything runs in your browser. Nothing is uploaded.</span>
+		<span></span>
 		<a href="{base}/about/">About</a>
 	</footer>
 </div>
