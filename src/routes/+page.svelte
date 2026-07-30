@@ -199,8 +199,11 @@
 		>
 			Sync
 		</button>
+		<!-- A fixed label, not "Hide editor"/"Show editor": the checkbox already
+		     reports the state, and a ticked box labelled "Hide editor" says the
+		     opposite of what it means. -->
 		<button onclick={toggleEditor} aria-pressed={showEditor} title="Show or hide the Markdown editor">
-			{showEditor ? 'Hide editor' : 'Show editor'}
+			Editor
 		</button>
 		<button onclick={() => (showMeta = !showMeta)} aria-pressed={showMeta}>Metadata</button>
 		<button onclick={() => (showThemePanel = !showThemePanel)} aria-pressed={showThemePanel}>

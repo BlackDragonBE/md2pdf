@@ -788,7 +788,7 @@ test.describe('editor pane layout', () => {
 			.locator('.preview-pane')
 			.evaluate((el) => el.getBoundingClientRect().width);
 
-		await page.getByRole('button', { name: 'Hide editor' }).click();
+		await page.getByRole('button', { name: 'Editor' }).click();
 		await expect(page.locator('.editor-pane')).toHaveCount(0);
 		await expect(page.locator('.splitter')).toHaveCount(0);
 
@@ -797,7 +797,7 @@ test.describe('editor pane layout', () => {
 			.evaluate((el) => el.getBoundingClientRect().width);
 		expect(previewAfter).toBeGreaterThan(previewBefore);
 
-		await page.getByRole('button', { name: 'Show editor' }).click();
+		await page.getByRole('button', { name: 'Editor' }).click();
 		await expect(page.locator('textarea.editor')).toBeVisible();
 	});
 

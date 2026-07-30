@@ -15,6 +15,10 @@
 	--text-faint: #6c7488;
 	--accent: #7aa2f7;
 	--accent-dim: #3b5486;
+	/* Text on a solid --accent fill. Dark's accent is a light blue, so white
+	   would be unreadable on it; light's is dark enough for white. */
+	--accent-text: #10131a;
+	--accent-glow: rgb(122 162 247 / 0.45);
 	--warn: #e0af68;
 	--error: #f7768e;
 	--ok: #9ece6a;
@@ -41,6 +45,8 @@
 	--text-faint: #7d8595;
 	--accent: #2f6fd0;
 	--accent-dim: #2f6fd0;
+	--accent-text: #ffffff;
+	--accent-glow: rgb(47 111 208 / 0.35);
 	--warn: #8a5b00;
 	--error: #b3261e;
 	--ok: #256d2b;
@@ -95,10 +101,59 @@ button:disabled {
 	cursor: default;
 }
 
-button.primary {
-	background: var(--accent-dim);
+/*
+ * Toggles (Sync, Metadata, Theme, the editor button) read as plain buttons and
+ * were indistinguishable on from off — aria-pressed was set but nothing
+ * rendered it. They now wear a checkbox and drop the raised button chrome, so
+ * "flips a setting" and "does a thing" are told apart before being clicked.
+ * The box is a pseudo-element rather than a real <input>: these must stay
+ * role=button/aria-pressed for the E2E selectors, and a label-wrapped checkbox
+ * would change the accessible role.
+ */
+button[aria-pressed] {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: none;
+	border-color: transparent;
+	color: var(--text-dim);
+}
+
+button[aria-pressed]::before {
+	content: '';
+	flex: none;
+	width: 13px;
+	height: 13px;
+	border: 1px solid var(--border-strong);
+	border-radius: 3px;
+	background: var(--bg-input);
+}
+
+button[aria-pressed]:hover:not(:disabled) {
+	background: var(--bg-raised);
+	border-color: var(--border);
+	filter: none;
+}
+
+button[aria-pressed='true'] {
+	color: var(--text);
+}
+
+button[aria-pressed='true']::before {
 	border-color: var(--accent);
-	color: #fff;
+	/* --accent-dim, not --accent: it is the one fill dark enough for a white
+	   tick in both themes (dark's --accent is a pale blue). */
+	background: var(--accent-dim) 50% / 9px 9px no-repeat
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6.5 4.5 9.5 10.5 2.5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+button.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--accent-text);
+	font-weight: 600;
+	padding: 6px 16px;
+	box-shadow: 0 1px 6px var(--accent-glow);
 }
 
 button.primary:hover:not(:disabled) {
