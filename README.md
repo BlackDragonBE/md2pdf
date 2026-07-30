@@ -70,13 +70,16 @@ read files off your disk by relative path. Pasted images are capped at 2 MB.
 | `![[Note]]` | A reference to the target, italic by default, or hidden |
 | `==text==` | Highlighted |
 | `[^1]` plus `[^1]: note` | A superscript marker and a numbered notes section at the end |
+| `#tag`, `#parent/child` | Coloured, optionally on a tinted background. A numeric `#1234` stays literal, so issue references survive |
 | `%%text%%` | Left out, inline or across several lines. Optionally printed, for review copies |
 | `^my-id` | Stripped |
 
 Each of these is a switch in the theme panel. Turn one off and that syntax stays
 in the PDF as literal text — useful if your document means something else by
-`[[`, `%%` or `^id`. Callout colours are per type, and every one takes an
+`[[`, `%%`, `#` or `^id`. Callout colours are per type, and every one takes an
 optional icon character.
+
+Math (`$…$`) is not supported.
 
 **Themes.** Every visual choice lives in the theme, and themes are portable
 JSON — export one, edit it in a text editor, send it to someone else. A partial

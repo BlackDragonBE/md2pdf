@@ -25,6 +25,7 @@ export function parseOptionsFor(theme: Theme): ParseOptions {
 		callouts: o.callouts.enabled,
 		comments: o.comments.enabled,
 		blockIds: o.blockIds.enabled,
+		tags: o.tags.enabled,
 		highlight: o.highlight.enabled,
 		footnotes: o.footnotes.enabled
 	};
@@ -50,6 +51,7 @@ function cacheKey(o: ParseOptions): string {
 		o.callouts,
 		o.comments,
 		o.blockIds,
+		o.tags,
 		o.highlight,
 		o.footnotes
 		// A NUL as an escape, never a literal NUL byte in the source: one of those

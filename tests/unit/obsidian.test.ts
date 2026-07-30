@@ -214,6 +214,73 @@ describe('callouts', () => {
 	});
 });
 
+describe('tags', () => {
+	it('styles a tag from the theme, hash included', () => {
+		const run = runs('a #project tag').find((r) => r.text === '#project');
+		expect(run?.color).toBe('#08787f');
+	});
+
+	it('reads a nested tag whole', () => {
+		expect(runs('#parent/child here').some((r) => r.text === '#parent/child')).toBe(true);
+	});
+
+	it('can drop the hash', () => {
+		const theme = cloneDefaultTheme();
+		theme.obsidian.tags.showHash = false;
+		expect(text('#project', theme)).toBe('project');
+	});
+
+	it('can carry a background', () => {
+		const theme = cloneDefaultTheme();
+		theme.obsidian.tags.background = '#e0f2f1';
+		expect(runs('#project', theme).find((r) => r.text === '#project')?.background).toBe('#e0f2f1');
+	});
+
+	it('works at the start of a line, where it is not a heading', () => {
+		const out = tokens('#project alone');
+		expect(out.map((t) => t.type)).not.toContain('heading_open');
+		expect(out.find((t) => t.type === 'inline')?.children?.map((c) => c.type)).toContain(
+			'obsidian_tag'
+		);
+	});
+
+	it('leaves a real heading alone', () => {
+		expect(tokens('# Heading').map((t) => t.type)).toContain('heading_open');
+	});
+
+	// A technical document is full of things that look like tags but are not.
+	it.each([
+		['a numeric issue reference', 'see #1234 for details', '#1234'],
+		['a mid-word hash', 'example.com#fragment', '#fragment'],
+		['a hash inside a word', 'a#b'],
+		['a bare hash', 'C# is a language']
+	])('leaves %s literal', (_label, source, fragment?: string) => {
+		const out = text(source);
+		expect(out).toBe(source);
+		if (fragment) expect(out).toContain(fragment);
+	});
+
+	it('leaves a tag inside a code span literal', () => {
+		const run = runs('use `#project` here').find((r) => r.style === 'inlineCode');
+		expect(run?.text).toBe('#project');
+		expect(run?.color).not.toBe('#08787f');
+	});
+
+	it('leaves a tag inside a fence literal', () => {
+		const fence = tokens('```\n#project\n```').find((t) => t.type === 'fence');
+		expect(fence?.content).toBe('#project\n');
+	});
+
+	it('keeps a CSS colour looking like a tag, as Obsidian does', () => {
+		// #fff really is a tag by Obsidian's rules; documenting the consequence.
+		expect(runs('use #fff here').some((r) => r.text === '#fff' && r.color === '#08787f')).toBe(true);
+	});
+
+	it('stays literal when disabled', () => {
+		expect(text('a #project tag', undefined, { tags: false })).toBe('a #project tag');
+	});
+});
+
 describe('footnotes', () => {
 	it('renders the reference as a superscript number', () => {
 		const run = runs('text[^1]\n\n[^1]: the note').find((r) => r.sup);

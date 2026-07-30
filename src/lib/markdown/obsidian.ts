@@ -20,6 +20,7 @@ export interface ObsidianOptions {
 	callouts: boolean;
 	comments: boolean;
 	blockIds: boolean;
+	tags: boolean;
 }
 
 /** Canonical callout types. Aliases below fold into these. */
@@ -70,6 +71,13 @@ export function canonicalCallout(raw: string): CalloutType {
 const WIKILINK = /^!?\[\[([^[\]\n|]*)(?:\|([^[\]\n]*))?\]\]/;
 const COMMENT = /^%%([\s\S]*?)%%/;
 const BLOCK_ID = /^\^([A-Za-z0-9-]+)$/;
+
+/** Obsidian's tag charset: letters, numbers, underscore, hyphen, slash. */
+const TAG = /^#([\p{L}\p{N}_/-]+)/u;
+/** A tag needs one non-numeric character, so an issue reference like #1234 is not one. */
+const TAG_NUMERIC = /^\p{N}+$/u;
+/** `#` must not sit inside a word: `example.com#frag` and `a#b` are not tags. */
+const TAG_WORD_CHAR = /[\p{L}\p{N}_/-]/u;
 
 /** `Note#Heading` / `Note#^blockid` → target plus the section, `^` stripped. */
 function splitSection(raw: string): [string, string] {
@@ -128,6 +136,25 @@ function blockIdRule(state: StateInline, silent: boolean): boolean {
 
 	if (!silent) state.push('block_id', '', 0).content = m[1];
 	state.pos = state.posMax;
+	return true;
+}
+
+/**
+ * `#tag`, including nested `#parent/child`.
+ *
+ * `#tag` at the start of a line is not a heading — ATX headings need a space
+ * after the hashes — so it reaches this rule as ordinary paragraph text.
+ */
+function tagRule(state: StateInline, silent: boolean): boolean {
+	if (state.src.charCodeAt(state.pos) !== 0x23 /* # */) return false;
+
+	if (state.pos > 0 && TAG_WORD_CHAR.test(state.src[state.pos - 1])) return false;
+
+	const m = TAG.exec(state.src.slice(state.pos, state.posMax));
+	if (!m || TAG_NUMERIC.test(m[1])) return false;
+
+	if (!silent) state.push('obsidian_tag', '', 0).content = m[1];
+	state.pos += m[0].length;
 	return true;
 }
 
@@ -252,5 +279,7 @@ export function obsidianPlugin(md: MarkdownIt, options: ObsidianOptions): void {
 		});
 	}
 	if (options.blockIds) md.inline.ruler.before('link', 'block_id', blockIdRule);
+	// After `linkify`, so a URL fragment stays part of its link.
+	if (options.tags) md.inline.ruler.before('link', 'obsidian_tag', tagRule);
 	if (options.callouts) md.core.ruler.before('inline', 'obsidian_callout', calloutRule);
 }

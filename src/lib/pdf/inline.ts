@@ -139,6 +139,15 @@ export function renderInline(
 				if (c.show) push(tok.content, { color: c.color, italics: c.italics });
 				break;
 			}
+			case 'obsidian_tag': {
+				const g = ctx.theme.obsidian.tags;
+				const extra: Partial<TextRun> = { color: g.color };
+				if (g.background) extra.background = g.background;
+				if (g.bold) extra.bold = true;
+				if (g.italics) extra.italics = true;
+				push(g.showHash ? `#${tok.content}` : tok.content, extra);
+				break;
+			}
 			case 'block_id':
 				break; // A vault-internal anchor; nothing to show in a PDF.
 			case 'footnote_ref': {

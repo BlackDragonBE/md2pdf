@@ -251,6 +251,19 @@ export const ThemeSchema = z.object({
 		blockIds: z.object({
 			/** `^id` at the end of a block is stripped; off leaves it literal. */
 			enabled: z.boolean().default(true)
+		}),
+		tags: z.object({
+			enabled: z.boolean().default(true),
+			color: Hex.default('#08787f'),
+			/**
+			 * null for plain coloured text. A run background has no padding, so it
+			 * reads as a highlight rather than one of Obsidian's rounded pills.
+			 */
+			background: Hex.nullable().default(null),
+			bold: z.boolean().default(false),
+			italics: z.boolean().default(false),
+			/** Keep the leading `#`. */
+			showHash: z.boolean().default(true)
 		})
 	}),
 

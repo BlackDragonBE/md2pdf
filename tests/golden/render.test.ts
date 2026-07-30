@@ -479,6 +479,16 @@ describe('obsidian flavored markdown', () => {
 		expect(out.text).toContain('important');
 	});
 
+	it('renders tags, and leaves things that only look like tags alone', async () => {
+		const out = await renderAndExtract(
+			'Filed under #project/alpha and #urgent, see #1234 and example.com#frag.'
+		);
+		expect(out.text).toContain('#project/alpha');
+		expect(out.text).toContain('#urgent');
+		expect(out.text).toContain('#1234');
+		expect(out.text).toContain('example.com#frag');
+	});
+
 	it('renders a wikilink as text and keeps comments out', async () => {
 		const out = await renderAndExtract('See [[Other Note|the other]] %%not this%% here. ^blk-1');
 		expect(out.text).toContain('the other');

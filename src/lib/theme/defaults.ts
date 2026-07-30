@@ -206,7 +206,15 @@ export const DEFAULT_THEME: Theme = {
 			rule: { enabled: true, color: '#dddddd', width: 0.5 }
 		},
 		comments: { enabled: true, show: false, color: '#8a8a8a', italics: true },
-		blockIds: { enabled: true }
+		blockIds: { enabled: true },
+		tags: {
+			enabled: true,
+			color: '#08787f',
+			background: null,
+			bold: false,
+			italics: false,
+			showHash: true
+		}
 	},
 
 	image: {

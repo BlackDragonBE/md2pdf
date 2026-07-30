@@ -1131,6 +1131,54 @@
 		{/if}
 
 		<hr />
+		<Field label="Tags" hint="#tag and nested #parent/child. A numeric #1234 stays literal.">
+			<input
+				type="checkbox"
+				checked={t.obsidian.tags.enabled}
+				onchange={(e) => edit((d) => (d.obsidian.tags.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.obsidian.tags.enabled}
+			<Field label="Colour">
+				<ColorInput
+					value={t.obsidian.tags.color}
+					onchange={(c) => c && edit((d) => (d.obsidian.tags.color = c))}
+				/>
+			</Field>
+			<Field
+				label="Background"
+				hint="Unset for plain coloured text. A background sits tight against the glyphs, more highlight than pill."
+			>
+				<ColorInput
+					value={t.obsidian.tags.background}
+					nullable
+					onchange={(c) => edit((d) => (d.obsidian.tags.background = c))}
+				/>
+			</Field>
+			<Field label="Bold">
+				<input
+					type="checkbox"
+					checked={t.obsidian.tags.bold}
+					onchange={(e) => edit((d) => (d.obsidian.tags.bold = e.currentTarget.checked))}
+				/>
+			</Field>
+			<Field label="Italic">
+				<input
+					type="checkbox"
+					checked={t.obsidian.tags.italics}
+					onchange={(e) => edit((d) => (d.obsidian.tags.italics = e.currentTarget.checked))}
+				/>
+			</Field>
+			<Field label="Keep the # sign">
+				<input
+					type="checkbox"
+					checked={t.obsidian.tags.showHash}
+					onchange={(e) => edit((d) => (d.obsidian.tags.showHash = e.currentTarget.checked))}
+				/>
+			</Field>
+		{/if}
+
+		<hr />
 		<Field
 			label="Block identifiers"
 			hint="^my-id at the end of a block. On strips it; off prints it."

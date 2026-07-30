@@ -89,7 +89,9 @@ so past the limit the app warns rather than refusing.
 ### Obsidian Flavored Markdown
 
 `markdown/obsidian.ts` adds what OFM has beyond GFM and what no existing plugin
-covers: wikilinks/embeds, `%%comments%%`, `^block-ids` and callouts.
+covers: wikilinks/embeds, `%%comments%%`, `^block-ids`, `#tags` and callouts.
+Math (`$…$`) is deliberately absent — it needs a LaTeX renderer producing
+something pdfmake can draw, and hits the same inline-node limit as colour emoji.
 `==highlights==` and footnotes come from markdown-it-mark and
 markdown-it-footnote — reimplementing markdown-it's delimiter and
 reference machinery would be strictly worse than two zero-dependency plugins by
@@ -103,9 +105,13 @@ its own author.
   still raw text. That is what lets the title keep its inline formatting: it is
   retyped to `callout_title_*` and tokenised by the normal `inline` rule
   afterwards. Running it later would mean re-tokenising by hand.
-- **`%` and `^` are markdown-it terminator characters**, so `%%…%%` and `^id`
-  work as ordinary inline rules. Only a comment spanning a *blank line* needs a
-  block rule, because no inline rule can see across one.
+- **`%`, `^` and `#` are markdown-it terminator characters**, so `%%…%%`, `^id`
+  and `#tag` work as ordinary inline rules. Only a comment spanning a *blank
+  line* needs a block rule, because no inline rule can see across one.
+- **The tag rule's negative cases are the load-bearing ones.** A numeric `#1234`
+  is not a tag (issue references), and `#` preceded by a word character is not
+  one (`example.com#frag`, `C#`). `#tag` at the start of a line reaches the rule
+  because ATX headings require a space after the hashes. Tests pin all of it.
 - **A callout's layout object is built inline, not in `buildLayouts`** — bar and
   tint colours vary per type, and `buildLayouts` returns one shared set.
 - **There is no vault**, so a wikilink is styled text, never a hyperlink, and an
