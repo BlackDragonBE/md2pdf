@@ -89,7 +89,7 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 			const inline = takeInline(cur, key, ctx);
 			skipUntil(cur, 'heading_close');
 			const node: TextNode = {
-				text: inline as (string | TextRun)[],
+				text: inline,
 				style: key,
 				headlineLevel: level,
 				margin: [...t.elements[key].margin]
@@ -110,11 +110,11 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 			skipUntil(cur, 'paragraph_close');
 			if (inline.length === 0) return null;
 			const node: TextNode = {
-				text: inline as (string | TextRun)[],
+				text: inline,
 				style: ctx.paragraphStyle
 			};
 			// Tight list items hide their paragraphs; the margin belongs to the item.
-			if (tok.hidden) return { text: inline as (string | TextRun)[], style: 'listItem' };
+			if (tok.hidden) return { text: inline, style: 'listItem' };
 			return elementNode(node, 'paragraph', t);
 		}
 
@@ -199,7 +199,7 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 		case 'callout_title_open': {
 			const inline = takeInline(cur, 'calloutTitle', ctx);
 			skipUntil(cur, 'callout_title_close');
-			const node: TextNode = { text: inline as (string | TextRun)[], style: 'calloutTitle' };
+			const node: TextNode = { text: inline, style: 'calloutTitle' };
 			if (ctx.calloutColor) node.color = ctx.calloutColor;
 			return node;
 		}
@@ -249,7 +249,7 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 		case 'inline': {
 			// An inline token outside any block wrapper; render it as a paragraph.
 			const runs = coalesce(renderInline(tok.children, 'paragraph', ctx));
-			return runs.length ? ({ text: runs as (string | TextRun)[], style: 'paragraph' } as TextNode) : null;
+			return runs.length ? ({ text: runs, style: 'paragraph' } as TextNode) : null;
 		}
 
 		default:
@@ -424,7 +424,7 @@ function codeBlock(tok: Token, ctx: BlockContext): Content {
 		ctx.fonts.emoji
 	);
 
-	const codeCell: Content = { text: runs as (string | TextRun)[], style: 'codeBlock' };
+	const codeCell: Content = { text: runs, style: 'codeBlock' };
 
 	if (!t.code.showLineNumbers) {
 		return {
@@ -481,7 +481,7 @@ function table(cur: Cursor, ctx: BlockContext): Content {
 				const runs = takeInline(cur, style, ctx);
 				skipUntil(cur, tok.type === 'th_open' ? 'th_close' : 'td_close');
 				current?.push({
-					content: { text: runs as (string | TextRun)[], style } as TextNode,
+					content: { text: runs, style } as TextNode,
 					alignment
 				});
 				break;

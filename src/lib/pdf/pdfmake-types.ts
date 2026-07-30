@@ -35,8 +35,33 @@ export interface TextRun {
 	sub?: boolean;
 }
 
+/**
+ * Vector artwork. As a block node this is stock pdfmake; inside a `text` array
+ * it needs the patch in `patches/` — see `InlineArtwork`.
+ */
+export interface SvgNode {
+	svg: string;
+	width?: number;
+	height?: number;
+	fit?: [number, number];
+	margin?: Margin;
+	alignment?: Alignment;
+	pageBreak?: 'before' | 'after';
+}
+
+/**
+ * An image or SVG sitting *inside* a `text` array, flowing with the words.
+ *
+ * Stock pdfmake reserves no width for these and never draws them, which is why
+ * a mid-sentence `![alt](x)` used to vanish. `patches/pdfmake+0.2.23.patch`
+ * adds both. Width and height must both be explicit: the patch deliberately
+ * measures nothing, so that it needs no new import and can be applied verbatim
+ * to the prebuilt browser bundle.
+ */
+export type InlineArtwork = (ImageNode | SvgNode) & { width: number; height: number };
+
 export interface TextNode extends Omit<TextRun, 'text'> {
-	text: string | (string | TextRun)[];
+	text: string | (string | TextRun | InlineArtwork)[];
 	alignment?: Alignment;
 	margin?: Margin;
 	pageBreak?: 'before' | 'after';
@@ -169,6 +194,7 @@ export type Content =
 	| TextRun
 	| TextNode
 	| ImageNode
+	| SvgNode
 	| CanvasNode
 	| StackNode
 	| ColumnsNode

@@ -1,8 +1,8 @@
 import type Token from 'markdown-it/lib/token.mjs';
 import type { Theme } from '../theme/schema';
 import { splitEmojiRuns } from './emoji';
-import type { ResolvedImage } from './images';
-import type { ImageNode, TextRun } from './pdfmake-types';
+import { drawWidth, type ResolvedImage } from './images';
+import type { InlineArtwork, TextRun } from './pdfmake-types';
 import type { FontMap } from './styles';
 
 export interface InlineContext {
@@ -14,7 +14,7 @@ export interface InlineContext {
 	contentWidth: number;
 }
 
-export type InlineContent = TextRun | ImageNode;
+export type InlineContent = TextRun | InlineArtwork;
 
 /** markdown-it Tokens survive structuredClone as plain objects; read attrs directly. */
 export function attrGet(token: Token | { attrs?: [string, string][] | null }, name: string): string | null {
@@ -215,16 +215,22 @@ export function imageAltText(tok: Token): string {
 	return alt || attrGet(tok, 'alt') || '[image]';
 }
 
-function inlineImage(tok: Token, ctx: InlineContext): ImageNode | null {
+/**
+ * A mid-sentence image, flowing with the words around it.
+ *
+ * Both dimensions are explicit because the pdfmake patch measures nothing —
+ * see `InlineArtwork`. The height comes from the intrinsic aspect ratio so a
+ * clamped width does not squash the picture.
+ */
+function inlineImage(tok: Token, ctx: InlineContext): InlineArtwork | null {
 	const src = attrGet(tok, 'src');
 	if (!src) return null;
 	const resolved = ctx.images.get(src);
 	if (!resolved || resolved.kind === 'failed') return null;
-	const width = Math.min(
-		resolved.width * 0.75,
-		ctx.contentWidth * ctx.theme.image.maxWidth
-	);
-	return { image: resolved.dataUri, width };
+
+	const width = drawWidth(resolved.width, ctx.contentWidth, ctx.theme.image.maxWidth);
+	const ratio = resolved.height > 0 ? resolved.height / resolved.width : 1;
+	return { image: resolved.dataUri, width, height: width * ratio };
 }
 
 /** Collapse adjacent runs that share identical formatting. Purely cosmetic for output size. */

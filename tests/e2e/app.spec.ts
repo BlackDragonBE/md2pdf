@@ -1065,6 +1065,26 @@ test.describe('emoji', () => {
 });
 
 /**
+ * The browser loads `pdfmake/build/pdfmake`; every golden test loads
+ * `pdfmake/src/printer.js`. They are different copies of the code, so this is
+ * the only test that can prove the inline-artwork patch reached the bundle.
+ * Without it a bundle-only regression ships with a green Node suite.
+ */
+test('a mid-sentence image reaches the downloaded PDF', async ({ page }) => {
+	const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
+	await setSource(page, `Before ![alt](${png}) after it.`);
+
+	const bytes = await download(page);
+	expect(bytes.includes(Buffer.from('/Subtype /Image'))).toBe(true);
+
+	const pdf = await readPdf(bytes);
+	expect(pdf.pages[0]).toContain('Before');
+	expect(pdf.pages[0]).toContain('after');
+	expect(pdf.pageCount).toBe(1);
+	await expect(page.locator('.banner')).toHaveCount(0);
+});
+
+/**
  * A re-render restores the preview's scroll position, which fires `scroll`.
  * Treating that as the reader scrolling made every keystroke tug the editor
  * along and swallow the next real scroll.

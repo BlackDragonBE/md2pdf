@@ -30,6 +30,22 @@ declare module 'pdfmake/build/pdfmake' {
 	export default pdfMake;
 }
 
+declare module 'pdfmake/src/textTools.js' {
+	interface Inline {
+		text: string;
+		width: number;
+		height: number;
+		svg?: string;
+		image?: string;
+		_inlineW?: number;
+		_inlineH?: number;
+	}
+	export default class TextTools {
+		constructor(fontProvider: unknown);
+		buildInlines(text: unknown, styleContextStack: unknown): { items: Inline[] };
+	}
+}
+
 declare module 'pdfmake/src/printer.js' {
 	interface PdfKitDocument {
 		on(event: 'data', cb: (chunk: Uint8Array) => void): void;

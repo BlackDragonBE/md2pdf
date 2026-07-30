@@ -1,0 +1,144 @@
+diff --git a/node_modules/pdfmake/build/pdfmake.js b/node_modules/pdfmake/build/pdfmake.js
+index 7864e4b..d4c980f 100644
+--- a/node_modules/pdfmake/build/pdfmake.js
++++ b/node_modules/pdfmake/build/pdfmake.js
+@@ -20526,8 +20526,32 @@ function measure(fontProvider, textArray, styleContextStack) {
+ 
+ 		var font = fontProvider.provideFont(fontName, bold, italics);
+ 
+-		item.width = widthOfString(item.text, font, fontSize, characterSpacing, fontFeatures);
+-		item.height = font.lineHeight(fontSize) * lineHeight;
++		// md2pdf patch — inline images and SVGs. See patches/README.md and
++		// https://github.com/bpampuch/pdfmake/pull/1287
++		//
++		// copyStyle already carries `svg`/`image` onto the inline, so the node
++		// reaches the renderer; it only ever failed because this line overwrote
++		// its width with widthOfString('') === 0. The caller supplies width and
++		// height, so nothing has to be measured here and the patch needs no new
++		// require — which matters because the same hunk is applied to the
++		// prebuilt build/pdfmake.js, where imports are numeric module ids.
++		//
++		// `height` deliberately stays the text line height. Line.getHeight takes
++		// the tallest inline but Line.getAscenderHeight is font-derived only, so
++		// raising it would add space below the baseline rather than move the
++		// text. Keeping it means the line box never changes.
++		if (item.svg || item.image) {
++			if (item._inlineH === undefined) {
++				item._inlineW = item.width || 0;
++				item._inlineH = item.height || item.width || 0;
++			}
++			item.width = item._inlineW;
++			item.height = font.lineHeight(fontSize) * lineHeight;
++		} else {
++			item.width = widthOfString(item.text, font, fontSize, characterSpacing, fontFeatures);
++			item.height = font.lineHeight(fontSize) * lineHeight;
++		}
++		// md2pdf patch end
+ 
+ 		if (!item.leadingCut) {
+ 			item.leadingCut = 0;
+@@ -66003,6 +66027,30 @@ function renderLine(line, x, y, patterns, pdfKitDoc) {
+ 		pdfKitDoc._font = inline.font;
+ 		pdfKitDoc.fontSize(inline.fontSize);
+ 
++		// md2pdf patch — inline images and SVGs. See patches/README.md and
++		// https://github.com/bpampuch/pdfmake/pull/1287
++		//
++		// Sit the artwork on the text baseline (y + ascenderHeight) rather than
++		// the top of the line box, so it lines up with the glyphs beside it.
++		// SVGtoPDF is already required at the top of this module.
++		if (inline.svg || inline.image) {
++			var inlineY = y + ascenderHeight - inline._inlineH;
++			if (inline.svg) {
++				SVGtoPDF(pdfKitDoc, inline.svg, x + inline.x, inlineY, {
++					width: inline._inlineW,
++					height: inline._inlineH,
++					assumePt: true
++				});
++			} else {
++				pdfKitDoc.image(inline.image, x + inline.x, inlineY, {
++					width: inline._inlineW,
++					height: inline._inlineH
++				});
++			}
++			continue;
++		}
++		// md2pdf patch end
++
+ 		var shiftedY = offsetText(y + shiftToBaseline, inline);
+ 		pdfKitDoc.text(inline.text, x + inline.x, shiftedY, options);
+ 
+diff --git a/node_modules/pdfmake/src/printer.js b/node_modules/pdfmake/src/printer.js
+index 699286c..b23ad0b 100644
+--- a/node_modules/pdfmake/src/printer.js
++++ b/node_modules/pdfmake/src/printer.js
+@@ -530,6 +530,30 @@ function renderLine(line, x, y, patterns, pdfKitDoc) {
+ 		pdfKitDoc._font = inline.font;
+ 		pdfKitDoc.fontSize(inline.fontSize);
+ 
++		// md2pdf patch — inline images and SVGs. See patches/README.md and
++		// https://github.com/bpampuch/pdfmake/pull/1287
++		//
++		// Sit the artwork on the text baseline (y + ascenderHeight) rather than
++		// the top of the line box, so it lines up with the glyphs beside it.
++		// SVGtoPDF is already required at the top of this module.
++		if (inline.svg || inline.image) {
++			var inlineY = y + ascenderHeight - inline._inlineH;
++			if (inline.svg) {
++				SVGtoPDF(pdfKitDoc, inline.svg, x + inline.x, inlineY, {
++					width: inline._inlineW,
++					height: inline._inlineH,
++					assumePt: true
++				});
++			} else {
++				pdfKitDoc.image(inline.image, x + inline.x, inlineY, {
++					width: inline._inlineW,
++					height: inline._inlineH
++				});
++			}
++			continue;
++		}
++		// md2pdf patch end
++
+ 		var shiftedY = offsetText(y + shiftToBaseline, inline);
+ 		pdfKitDoc.text(inline.text, x + inline.x, shiftedY, options);
+ 
+diff --git a/node_modules/pdfmake/src/textTools.js b/node_modules/pdfmake/src/textTools.js
+index 3f7b16c..9683785 100644
+--- a/node_modules/pdfmake/src/textTools.js
++++ b/node_modules/pdfmake/src/textTools.js
+@@ -350,8 +350,32 @@ function measure(fontProvider, textArray, styleContextStack) {
+ 
+ 		var font = fontProvider.provideFont(fontName, bold, italics);
+ 
+-		item.width = widthOfString(item.text, font, fontSize, characterSpacing, fontFeatures);
+-		item.height = font.lineHeight(fontSize) * lineHeight;
++		// md2pdf patch — inline images and SVGs. See patches/README.md and
++		// https://github.com/bpampuch/pdfmake/pull/1287
++		//
++		// copyStyle already carries `svg`/`image` onto the inline, so the node
++		// reaches the renderer; it only ever failed because this line overwrote
++		// its width with widthOfString('') === 0. The caller supplies width and
++		// height, so nothing has to be measured here and the patch needs no new
++		// require — which matters because the same hunk is applied to the
++		// prebuilt build/pdfmake.js, where imports are numeric module ids.
++		//
++		// `height` deliberately stays the text line height. Line.getHeight takes
++		// the tallest inline but Line.getAscenderHeight is font-derived only, so
++		// raising it would add space below the baseline rather than move the
++		// text. Keeping it means the line box never changes.
++		if (item.svg || item.image) {
++			if (item._inlineH === undefined) {
++				item._inlineW = item.width || 0;
++				item._inlineH = item.height || item.width || 0;
++			}
++			item.width = item._inlineW;
++			item.height = font.lineHeight(fontSize) * lineHeight;
++		} else {
++			item.width = widthOfString(item.text, font, fontSize, characterSpacing, fontFeatures);
++			item.height = font.lineHeight(fontSize) * lineHeight;
++		}
++		// md2pdf patch end
+ 
+ 		if (!item.leadingCut) {
+ 			item.leadingCut = 0;

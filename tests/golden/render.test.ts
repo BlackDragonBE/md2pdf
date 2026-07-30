@@ -378,6 +378,46 @@ describe('code blocks', () => {
 	});
 });
 
+/**
+ * A mid-sentence image used to render as nothing at all — not even its alt
+ * text — because pdfmake reserves no width for a non-text node inside a `text`
+ * array and never draws it. See patches/pdfmake+0.2.23.patch.
+ */
+describe('mid-sentence images', () => {
+	const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
+	const images = new Map<string, ResolvedImage>([
+		['pic.png', { kind: 'ok', dataUri: PNG, width: 16, height: 16 }]
+	]);
+
+	it('draws the image and keeps the whole sentence on one line', async () => {
+		const { buffer } = await renderMarkdown('Before ![alt](pic.png) after it.', { images });
+		const out = await extract(buffer);
+
+		expect(out.text).toContain('Before');
+		expect(out.text).toContain('after');
+		// The image really is embedded, not silently skipped.
+		expect(buffer.includes(Buffer.from('/Subtype /Image'))).toBe(true);
+
+		// Same baseline before and after means it flowed inline rather than
+		// becoming a block or vanishing.
+		const words = out.items[0].filter((i) => i.str.trim());
+		const before = words.find((i) => i.str.includes('Before'));
+		const after = words.find((i) => i.str.includes('after'));
+		expect(before && after).toBeTruthy();
+		expect(after!.transform[5]).toBeCloseTo(before!.transform[5], 1);
+		// ...and it took horizontal space between them.
+		expect(after!.transform[4]).toBeGreaterThan(before!.transform[4] + 30);
+	});
+
+	it('still falls back to alt text when the image failed to resolve', async () => {
+		const broken = new Map<string, ResolvedImage>([
+			['gone.png', { kind: 'failed', reason: 'nope' }]
+		]);
+		const out = await renderAndExtract('Before ![the alt](gone.png) after.', { images: broken });
+		expect(out.text).toContain('the alt');
+	});
+});
+
 describe('generated documents are text, not raster', () => {
 	it('embeds subsetted fonts and selectable text', async () => {
 		const { buffer } = await renderMarkdown('# Searchable\n\nFind me.');
