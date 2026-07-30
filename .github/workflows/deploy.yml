@@ -11,17 +11,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run check
       - run: npm test
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: build }
+      # `include-hidden-files` is not optional here. v3 shipped every dotfile, v4
+      # started excluding them outright, and v5 excludes them unless asked. Drop
+      # it and `static/.nojekyll` never reaches Pages — with no error, just Jekyll
+      # quietly reprocessing the site.
+      - uses: actions/upload-pages-artifact@v5
+        with: { path: build, include-hidden-files: true }
 
   deploy:
     needs: build
@@ -29,4 +33,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
