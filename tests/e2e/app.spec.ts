@@ -9,20 +9,25 @@ async function downloadBytes(download: Download): Promise<Buffer> {
 }
 
 /** Parse the downloaded PDF in Node with pdf.js, the same way the golden tests do. */
-async function readPdf(bytes: Buffer): Promise<{ pageCount: number; pages: string[] }> {
+async function readPdf(
+	bytes: Buffer
+): Promise<{ pageCount: number; pages: string[]; sizes: { width: number; height: number }[] }> {
 	const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
 	const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes), disableFontFace: true })
 		.promise;
 	const pages: string[] = [];
+	const sizes: { width: number; height: number }[] = [];
 	for (let i = 1; i <= doc.numPages; i++) {
 		const page = await doc.getPage(i);
 		const content = await page.getTextContent();
 		pages.push((content.items as { str: string }[]).map((it) => it.str).join(''));
+		const viewport = page.getViewport({ scale: 1 });
+		sizes.push({ width: Math.round(viewport.width), height: Math.round(viewport.height) });
 		page.cleanup();
 	}
 	const pageCount = doc.numPages;
 	await doc.destroy();
-	return { pageCount, pages };
+	return { pageCount, pages, sizes };
 }
 
 async function renderId(page: Page): Promise<number> {
@@ -157,21 +162,26 @@ test('the page-break marker splits pages and stays literal inside a fence', asyn
 	expect(pdf.pages[1]).toContain('Two');
 });
 
+/**
+ * Read the page size out of the PDF, not the rendered width of `.page`.
+ *
+ * The DOM width was a proxy for "the theme reached the PDF" and a bad one: it
+ * only holds while the zoom stays pinned, so the test needed `fill('0.5')` plus
+ * a two-second sleep, and auto-fit re-running on the narrower page put the
+ * width back where it started and failed the assertion under load.
+ */
 test('a theme change reaches the PDF', async ({ page }) => {
 	await setSource(page, '# Heading\n\nBody paragraph.');
-	// Pin the zoom: auto-fit would otherwise zoom in on the narrower page and
-	// keep the rendered width almost unchanged, hiding the size change.
-	await page.locator('.zoom input').fill('0.5');
-	await page.waitForTimeout(2000);
-	const widthBefore = await page.locator('.page').first().evaluate((el) => el.clientWidth);
+	const before = await readPdf(await download(page));
+	expect(before.sizes[0]).toEqual({ width: 595, height: 842 }); // A4
 
 	const pageSection = await openSection(page, 'Page');
 	await afterRender(page, async () => {
 		await pageSection.locator('select').first().selectOption('A5');
 	});
 
-	const widthAfter = await page.locator('.page').first().evaluate((el) => el.clientWidth);
-	expect(widthAfter).toBeLessThan(widthBefore);
+	const after = await readPdf(await download(page));
+	expect(after.sizes[0]).toEqual({ width: 420, height: 595 }); // A5
 });
 
 test('enabling the watermark puts it on every page', async ({ page }) => {
@@ -357,8 +367,24 @@ test.describe('scrolling', () => {
 		const pageCount = await page.locator('.page').count();
 		expect(pageCount).toBeGreaterThan(20);
 
-		// Only a window of pages is rasterised, never all of them.
-		await expect(page.locator('.page canvas')).toHaveCount(3, { timeout: 20_000 });
+		/**
+		 * A bounded window, never the whole document. `shouldRender` keeps
+		 * `visiblePage ± NEIGHBOURHOOD` (preview/renderer.ts), so the window is at
+		 * most 2 × 2 + 1 pages.
+		 *
+		 * The old assertion was `toHaveCount(3)`, which is the window only while
+		 * page 1 is the visible one. `setSource` fills the textarea and leaves it
+		 * scrolled to the bottom, so scroll sync can move the preview before this
+		 * runs and the settled count is legitimately 5. Bound it instead of
+		 * pinning it, and poll so a mid-swap transient does not decide the result.
+		 */
+		const WINDOW = 5;
+		const windowed = async () => {
+			const n = await page.locator('.page canvas').count();
+			return n > 0 && n <= WINDOW;
+		};
+		await expect.poll(windowed, { timeout: 20_000 }).toBe(true);
+		expect(await page.locator('.page canvas').count()).toBeLessThan(pageCount);
 
 		await page.locator('.viewport').evaluate((el) => {
 			el.scrollTop = Math.round(el.scrollHeight * 0.5);
@@ -367,9 +393,7 @@ test.describe('scrolling', () => {
 
 		await expect(page.locator('.status')).not.toHaveText(`page 1 / ${pageCount}`);
 		// Still a bounded window after scrolling, and still showing something.
-		const canvases = await page.locator('.page canvas').count();
-		expect(canvases).toBeGreaterThan(0);
-		expect(canvases).toBeLessThanOrEqual(6);
+		await expect.poll(windowed, { timeout: 20_000 }).toBe(true);
 	});
 
 	/**
