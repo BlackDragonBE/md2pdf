@@ -11,8 +11,7 @@
 		"test": "vitest run --config vitest.config.ts",
 		"test:unit": "vitest run --config vitest.config.ts tests/unit",
 		"test:golden": "vitest run --config vitest.config.ts tests/golden",
-		"test:e2e": "playwright test",
-		"fonts:fetch": "node scripts/fetch-fonts.mjs"
+		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.50.0",
