@@ -57,7 +57,8 @@ async function intrinsicSize(blob: Blob): Promise<{ width: number; height: numbe
 	try {
 		return await new Promise<{ width: number; height: number }>((resolve, reject) => {
 			const img = new Image();
-			img.onload = () => resolve({ width: img.naturalWidth || 300, height: img.naturalHeight || 150 });
+			img.onload = () =>
+				resolve({ width: img.naturalWidth || 300, height: img.naturalHeight || 150 });
 			img.onerror = () => reject(new Error('image failed to decode'));
 			img.src = url;
 		});
@@ -89,7 +90,8 @@ async function resolveOne(src: string): Promise<ResolvedImage> {
 		const res = await fetch(src, { mode: 'cors' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const blob = await res.blob();
-		if (!blob.type.startsWith('image/')) throw new Error(`not an image (${blob.type || 'unknown'})`);
+		if (!blob.type.startsWith('image/'))
+			throw new Error(`not an image (${blob.type || 'unknown'})`);
 		const [dataUri, size] = await Promise.all([blobToDataUri(blob), intrinsicSize(blob)]);
 		return { kind: 'ok', dataUri, width: size.width, height: size.height };
 	}

@@ -4,7 +4,14 @@ import { splitEmojiRuns } from './emoji';
 import { highlightRuns } from './highlight';
 import type { ResolvedImage } from './images';
 import { drawWidth } from './images';
-import { attrGet, coalesce, imageAltText, renderInline, type InlineContext } from './inline';
+import {
+	attrGet,
+	coalesce,
+	imageAltText,
+	renderInline,
+	type InlineContent,
+	type InlineContext
+} from './inline';
 import type {
 	Content,
 	ImageNode,
@@ -16,8 +23,11 @@ import type {
 } from './pdfmake-types';
 import { alignmentFromStyle, buildTable, type TableCellSpec } from './tables';
 import type { FontMap } from './styles';
+import type { HeadingIndex } from './headings';
 
 export interface BlockContext extends InlineContext {
+	/** Every heading in the document, for numbering and the table of contents. */
+	headings: HeadingIndex;
 	/** Nesting depth of the current list, for bullet character selection. */
 	listDepth: number;
 	/** Style paragraphs render with. Footnote bodies swap it out. */
@@ -69,6 +79,23 @@ function isTaggable(node: Content): node is Exclude<Content, string | Content[]>
 	return typeof node === 'object' && node !== null && !Array.isArray(node) && !('id' in node);
 }
 
+/**
+ * Drop the run-level style a heading's runs carry, keeping the one on the node.
+ *
+ * Load-bearing for the table of contents: pdfmake reuses this exact array as
+ * the TOC line, and a run still saying `h1` would print the entry at heading
+ * size and colour, ignoring `tocEntry` entirely. The node's own style covers
+ * these runs in the document, so nothing changes there. Runs with a *different*
+ * style — inline code — keep theirs in both places.
+ */
+function tocSafe(runs: InlineContent[], key: ElementKey): InlineContent[] {
+	return runs.map((run) => {
+		if (!('text' in run) || run.style !== key) return run;
+		const { style: _dropped, ...rest } = run;
+		return rest;
+	});
+}
+
 function elementNode(node: Content, key: ElementKey, t: Theme): Content {
 	const style = t.elements[key];
 	if (!style.breakBefore || typeof node !== 'object' || node === null || Array.isArray(node)) {
@@ -86,14 +113,23 @@ function renderBlock(cur: Cursor, ctx: BlockContext): Content | Content[] | null
 		case 'heading_open': {
 			const level = Math.min(6, Math.max(1, Number(tok.tag.slice(1)) || 1));
 			const key = `h${level}` as ElementKey;
-			const inline = takeInline(cur, key, ctx);
+			const info = ctx.headings.byLine.get(tok.map?.[0] ?? -1);
+			const inline = tocSafe(takeInline(cur, key, ctx), key);
 			skipUntil(cur, 'heading_close');
+			// Its own run, not a prefix on the first one: the first run may be bold,
+			// a link, or an emoji picture, none of which the number should inherit.
+			if (info?.number) inline.unshift({ text: `${info.number} ` });
+
 			const node: TextNode = {
 				text: inline,
 				style: key,
 				headlineLevel: level,
 				margin: [...t.elements[key].margin]
 			};
+			if (t.toc.enabled && level <= t.toc.depth) {
+				node.tocItem = true;
+				node.tocMargin = [t.toc.indent * (level - 1), t.toc.entrySpacing, 0, 0];
+			}
 			return elementNode(node, key, t);
 		}
 
@@ -435,7 +471,10 @@ function codeBlock(tok: Token, ctx: BlockContext): Content {
 		};
 	}
 
-	const gutter = source.split('\n').map((_, i) => `${i + 1}\n`).join('');
+	const gutter = source
+		.split('\n')
+		.map((_, i) => `${i + 1}\n`)
+		.join('');
 	return {
 		table: {
 			widths: ['auto', '*'],
@@ -500,7 +539,8 @@ export function makeContext(
 	images: Map<string, ResolvedImage>,
 	emojiArt: Map<string, string>,
 	contentWidth: number,
-	warnings: Set<string>
+	warnings: Set<string>,
+	headings: HeadingIndex
 ): BlockContext {
 	return {
 		theme,
@@ -509,6 +549,9 @@ export function makeContext(
 		emojiArt,
 		contentWidth,
 		warnings,
+		headings,
+		destinations: headings.destinations,
+		blockAnchors: headings.blockAnchors,
 		listDepth: 0,
 		paragraphStyle: 'paragraph',
 		calloutColor: null

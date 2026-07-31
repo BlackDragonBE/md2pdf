@@ -47,11 +47,17 @@ declare module 'pdfmake/src/textTools.js' {
 }
 
 declare module 'pdfmake/src/printer.js' {
+	interface PdfOutlineNode {
+		addItem(title: string): PdfOutlineNode;
+	}
 	interface PdfKitDocument {
 		on(event: 'data', cb: (chunk: Uint8Array) => void): void;
 		on(event: 'end', cb: () => void): void;
 		on(event: 'error', cb: (error: Error) => void): void;
 		end(): void;
+		/** pdfkit's bookmark tree; reachable only with `bufferPages: true`. */
+		outline: PdfOutlineNode;
+		switchToPage(index: number): unknown;
 	}
 	export default class PdfPrinter {
 		constructor(fonts: Record<string, Record<string, string>>);

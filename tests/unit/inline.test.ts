@@ -12,7 +12,9 @@ function ctx(): InlineContext {
 		warnings: new Set<string>(),
 		images: new Map(),
 		emojiArt: new Map(),
-		contentWidth: 483
+		contentWidth: 483,
+		destinations: new Map(),
+		blockAnchors: new Map()
 	};
 }
 
@@ -95,8 +97,16 @@ describe('inline node mapping', () => {
 	});
 
 	it('renders a soft break as a space and a hard break as a newline', () => {
-		expect(runs('one\ntwo').map((r) => r.text).join('')).toBe('one two');
-		expect(runs('one  \ntwo').map((r) => r.text).join('')).toContain('\n');
+		expect(
+			runs('one\ntwo')
+				.map((r) => r.text)
+				.join('')
+		).toBe('one two');
+		expect(
+			runs('one  \ntwo')
+				.map((r) => r.text)
+				.join('')
+		).toContain('\n');
 	});
 
 	it('keeps raw HTML as literal text rather than emitting an html token', () => {
@@ -106,7 +116,11 @@ describe('inline node mapping', () => {
 		const tokens = parse('text <b>x</b> more', parseOpts()).tokens;
 		const inline = tokens.find((t) => t.type === 'inline');
 		expect(inline?.children?.some((child) => child.type === 'html_inline')).toBe(false);
-		expect(runs('text <b>x</b> more', c).map((r) => r.text).join('')).toBe('text <b>x</b> more');
+		expect(
+			runs('text <b>x</b> more', c)
+				.map((r) => r.text)
+				.join('')
+		).toBe('text <b>x</b> more');
 	});
 
 	it('drops an html_inline token with a warning if one ever appears', () => {

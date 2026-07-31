@@ -90,6 +90,7 @@
 	let notice = $state<string | null>(null);
 	let showMeta = $state(false);
 	let showThemePanel = $state(true);
+	let fileInput = $state<HTMLInputElement | null>(null);
 	let firstRender = true;
 
 	// Any of these changing re-renders; the store debounces and discards stale ids.
@@ -107,16 +108,52 @@
 		}
 	});
 
-	function download() {
-		const blob = pdfStore.blob();
-		if (!blob) return;
+	function save(blob: Blob, extension: string) {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
 		// Front matter first, then the metadata panel, then the theme name.
-		a.download = `${slugify(pdfStore.meta.title || docStore.meta.title || themeStore.current.name)}.pdf`;
+		a.download = `${slugify(pdfStore.meta.title || docStore.meta.title || themeStore.current.name)}.${extension}`;
 		a.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
+
+	function download() {
+		const blob = pdfStore.blob();
+		if (blob) save(blob, 'pdf');
+	}
+
+	function downloadSource() {
+		save(new Blob([docStore.source], { type: 'text/markdown' }), 'md');
+	}
+
+	/**
+	 * Opening a file replaces the document, and the document is the user's work.
+	 * The confirm is the whole safety net — there is no undo across a whole
+	 * replacement, and localStorage has already been overwritten by the time
+	 * anyone notices.
+	 */
+	async function openFile(file: File | null | undefined) {
+		if (!file) return;
+		if (docStore.source.trim() && !confirm(`Replace the current document with ${file.name}?`)) {
+			return;
+		}
+		try {
+			docStore.setSource(await file.text());
+		} catch (error) {
+			notice = `Could not read ${file.name}: ${(error as Error).message}`;
+			return;
+		}
+		// A file name is a better default title than "Default", and it is only a
+		// fallback: front matter and the metadata panel both still win.
+		const name = file.name.replace(/\.[^.]+$/, '');
+		if (!docStore.meta.title && name) docStore.setMeta({ title: name });
+	}
+
+	/** Anything that is not a picture; a dropped image is not a document. */
+	function droppedTextFile(e: DragEvent): File | null {
+		const file = e.dataTransfer?.files?.[0];
+		return file && !file.type.startsWith('image/') ? file : null;
 	}
 
 	function onkeydown(e: KeyboardEvent) {
@@ -142,9 +179,39 @@
 -->
 <svelte:head><title>md2pdf</title></svelte:head>
 
+<!--
+	Drop handling on the body, not the editor: with the editor collapsed there
+	would be nothing to aim at. `dragover` must be cancelled or the browser
+	navigates away to the dropped file instead.
+-->
+<svelte:body
+	ondragover={(e) => {
+		if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+	}}
+	ondrop={(e) => {
+		const file = droppedTextFile(e);
+		if (!file) return;
+		e.preventDefault();
+		void openFile(file);
+	}}
+/>
+
 <div class="app" class:no-panel={!showThemePanel}>
 	<header>
 		<strong>md2pdf</strong>
+		<button onclick={() => fileInput?.click()} title="Open a Markdown file, or drop one anywhere">
+			Open
+		</button>
+		<input
+			bind:this={fileInput}
+			class="visually-hidden"
+			type="file"
+			accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain"
+			onchange={(e) => {
+				void openFile(e.currentTarget.files?.[0]);
+				e.currentTarget.value = ''; // so re-opening the same file fires again
+			}}
+		/>
 		<span
 			class="state"
 			data-state={pdfStore.state}
@@ -202,9 +269,14 @@
 		<!-- A fixed label, not "Hide editor"/"Show editor": the checkbox already
 		     reports the state, and a ticked box labelled "Hide editor" says the
 		     opposite of what it means. -->
-		<button onclick={toggleEditor} aria-pressed={showEditor} title="Show or hide the Markdown editor">
+		<button
+			onclick={toggleEditor}
+			aria-pressed={showEditor}
+			title="Show or hide the Markdown editor"
+		>
 			Editor
 		</button>
+		<button onclick={downloadSource} title="Download the Markdown source">Save .md</button>
 		<button onclick={() => (showMeta = !showMeta)} aria-pressed={showMeta}>Metadata</button>
 		<button onclick={() => (showThemePanel = !showThemePanel)} aria-pressed={showThemePanel}>
 			Theme
@@ -229,7 +301,9 @@
 	{/if}
 	{#if pdfStore.warnings.length}
 		<details class="banner warn">
-			<summary>{pdfStore.warnings.length} warning{pdfStore.warnings.length === 1 ? '' : 's'}</summary>
+			<summary
+				>{pdfStore.warnings.length} warning{pdfStore.warnings.length === 1 ? '' : 's'}</summary
+			>
 			<ul>
 				{#each pdfStore.warnings as w (w)}
 					<li>{w}</li>
@@ -306,10 +380,16 @@
 	.banner {
 		flex: none;
 	}
+	/*
+	 * Wrapping, not a single row. The header is not a scroll container, so at
+	 * anything under about 1010px the controls past the right edge — including
+	 * Download PDF — were clipped and simply unreachable.
+	 */
 	header {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 8px;
+		gap: 6px 8px;
 		padding: 7px 12px;
 		border-bottom: 1px solid var(--border);
 		background: var(--bg-panel);
@@ -450,6 +530,11 @@
 	/* Stacked, so a horizontal splitter would make no sense; the editor can
 	   still be collapsed from the toolbar. */
 	@media (max-width: 720px) {
+		/* Once the toolbar is several rows deep the spacer only pushes a hole
+		   into the first one; the controls read better packed from the left. */
+		.spacer {
+			display: none;
+		}
 		.split {
 			flex-direction: column;
 		}

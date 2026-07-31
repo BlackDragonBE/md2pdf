@@ -1,6 +1,8 @@
 import { THEME_VERSION, type ElementStyleT, type Theme } from './schema';
 
-function el(partial: Partial<ElementStyleT> & Pick<ElementStyleT, 'size' | 'margin'>): ElementStyleT {
+function el(
+	partial: Partial<ElementStyleT> & Pick<ElementStyleT, 'size' | 'margin'>
+): ElementStyleT {
 	return {
 		font: 'body',
 		bold: false,
@@ -109,6 +111,17 @@ export const DEFAULT_THEME: Theme = {
 		offset: 28,
 		showOnFirstContentPage: true,
 		rule: { enabled: false, color: '#dddddd', width: 0.5 }
+	},
+
+	headings: { numbered: false },
+
+	toc: {
+		enabled: false,
+		title: 'Contents',
+		depth: 3,
+		indent: 14,
+		entrySpacing: 3,
+		pageBreakAfter: true
 	},
 
 	pagebreak: { marker: '\\pagebreak' },
@@ -225,14 +238,62 @@ export const DEFAULT_THEME: Theme = {
 	},
 
 	elements: {
-		h1: el({ font: 'heading', size: 26, bold: true, color: '#111111', margin: [0, 18, 0, 8], keepWithNext: true }),
-		h2: el({ font: 'heading', size: 20, bold: true, color: '#111111', margin: [0, 16, 0, 7], keepWithNext: true }),
-		h3: el({ font: 'heading', size: 16, bold: true, color: '#111111', margin: [0, 14, 0, 6], keepWithNext: true }),
-		h4: el({ font: 'heading', size: 13, bold: true, color: '#222222', margin: [0, 12, 0, 5], keepWithNext: true }),
-		h5: el({ font: 'heading', size: 11, bold: true, color: '#333333', margin: [0, 10, 0, 4], keepWithNext: true }),
-		h6: el({ font: 'heading', size: 10, bold: true, color: '#555555', margin: [0, 10, 0, 4], keepWithNext: true }),
+		h1: el({
+			font: 'heading',
+			size: 26,
+			bold: true,
+			color: '#111111',
+			margin: [0, 18, 0, 8],
+			keepWithNext: true
+		}),
+		h2: el({
+			font: 'heading',
+			size: 20,
+			bold: true,
+			color: '#111111',
+			margin: [0, 16, 0, 7],
+			keepWithNext: true
+		}),
+		h3: el({
+			font: 'heading',
+			size: 16,
+			bold: true,
+			color: '#111111',
+			margin: [0, 14, 0, 6],
+			keepWithNext: true
+		}),
+		h4: el({
+			font: 'heading',
+			size: 13,
+			bold: true,
+			color: '#222222',
+			margin: [0, 12, 0, 5],
+			keepWithNext: true
+		}),
+		h5: el({
+			font: 'heading',
+			size: 11,
+			bold: true,
+			color: '#333333',
+			margin: [0, 10, 0, 4],
+			keepWithNext: true
+		}),
+		h6: el({
+			font: 'heading',
+			size: 10,
+			bold: true,
+			color: '#555555',
+			margin: [0, 10, 0, 4],
+			keepWithNext: true
+		}),
 		paragraph: el({ size: 10.5, margin: [0, 0, 0, 8] }),
-		codeBlock: el({ font: 'mono', size: 9, color: '#24292f', lineHeight: 1.4, margin: [0, 4, 0, 10] }),
+		codeBlock: el({
+			font: 'mono',
+			size: 9,
+			color: '#24292f',
+			lineHeight: 1.4,
+			margin: [0, 4, 0, 10]
+		}),
 		inlineCode: el({ font: 'mono', size: 9.5, color: '#b31d28', margin: [0, 0, 0, 0] }),
 		blockquote: el({ size: 10.5, italics: true, color: '#57606a', margin: [0, 4, 0, 10] }),
 		listItem: el({ size: 10.5, margin: [0, 0, 0, 0] }),
@@ -241,7 +302,17 @@ export const DEFAULT_THEME: Theme = {
 		// The callout type supplies the colour at render time; this one is the
 		// fallback for a type the theme has no entry for.
 		calloutTitle: el({ font: 'heading', size: 10.5, bold: true, margin: [0, 0, 0, 5] }),
-		footnote: el({ size: 8.5, color: '#57606a', margin: [0, 0, 0, 4] })
+		footnote: el({ size: 8.5, color: '#57606a', margin: [0, 0, 0, 4] }),
+		tocTitle: el({
+			font: 'heading',
+			size: 20,
+			bold: true,
+			color: '#111111',
+			margin: [0, 0, 0, 12]
+		}),
+		// The margin is ignored: a TOC line's spacing comes from `toc.entrySpacing`,
+		// because pdfmake builds the list as a table and lays the cells out itself.
+		tocEntry: el({ size: 10.5, margin: [0, 0, 0, 0] })
 	},
 
 	locale: 'en-US'

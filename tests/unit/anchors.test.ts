@@ -9,7 +9,9 @@ import { parseOpts } from '../helpers/parseOptions';
  * that the id round-trips and the positions are sane.
  */
 describe('source-line anchors', () => {
-	const doc = Array.from({ length: 40 }, (_, i) => `## Section ${i}\n\nParagraph ${i}.`).join('\n\n');
+	const doc = Array.from({ length: 40 }, (_, i) => `## Section ${i}\n\nParagraph ${i}.`).join(
+		'\n\n'
+	);
 
 	it('reports an anchor for the blocks it renders', async () => {
 		const { anchors } = await renderMarkdown(doc);
@@ -37,7 +39,8 @@ describe('source-line anchors', () => {
 		let previous = { page: 0, top: 0 };
 		for (const anchor of anchors) {
 			const forward =
-				anchor.page > previous.page || (anchor.page === previous.page && anchor.top >= previous.top);
+				anchor.page > previous.page ||
+				(anchor.page === previous.page && anchor.top >= previous.top);
 			expect(forward, `line ${anchor.line} went backwards`).toBe(true);
 			previous = { page: anchor.page, top: anchor.top };
 		}

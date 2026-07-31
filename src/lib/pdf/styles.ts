@@ -40,6 +40,10 @@ export function buildStyles(t: Theme, fonts: FontMap): Record<string, StyleDefin
 	out.tableCell = { ...out.tableCell, margin: undefined };
 	out.tableHeader = { ...out.tableHeader, margin: undefined };
 
+	// A TOC line is a table cell too; its spacing comes from `toc.entrySpacing`,
+	// applied per entry as `tocMargin` so it can also carry the level indent.
+	out.tocEntry = { ...out.tocEntry, margin: undefined };
+
 	out.imageCaption = {
 		font: fonts.body,
 		fontSize: t.image.caption.size,

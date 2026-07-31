@@ -30,6 +30,30 @@ async function readPdf(
 	return { pageCount, pages, sizes };
 }
 
+/**
+ * The bookmark tree, which text extraction cannot see.
+ *
+ * This is the only place it is exercised against the prebuilt pdfmake bundle
+ * the browser actually loads — the golden tests run `pdfmake/src`, so a bundle
+ * whose internals moved would pass every one of them and ship a PDF with no
+ * outline at all.
+ */
+async function readOutline(bytes: Buffer): Promise<{ title: string; depth: number }[]> {
+	const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+	const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes), disableFontFace: true })
+		.promise;
+	const out: { title: string; depth: number }[] = [];
+	const walk = (items: { title: string; items?: unknown[] }[], depth: number) => {
+		for (const item of items) {
+			out.push({ title: item.title, depth });
+			walk((item.items ?? []) as { title: string; items?: unknown[] }[], depth + 1);
+		}
+	};
+	walk(((await doc.getOutline()) ?? []) as { title: string; items?: unknown[] }[], 0);
+	await doc.destroy();
+	return out;
+}
+
 async function renderId(page: Page): Promise<number> {
 	return Number(await page.locator('.state').getAttribute('data-render'));
 }
@@ -49,9 +73,7 @@ async function settled(page: Page) {
 async function afterRender(page: Page, action: () => Promise<void>) {
 	const before = await renderId(page);
 	await action();
-	await expect
-		.poll(() => renderId(page), { timeout: 40_000 })
-		.toBeGreaterThan(before);
+	await expect.poll(() => renderId(page), { timeout: 40_000 }).toBeGreaterThan(before);
 	await settled(page);
 }
 
@@ -137,7 +159,9 @@ test('downloading twice yields identical bytes and never regenerates', async ({ 
 	expect(second.equals(first)).toBe(true);
 });
 
-test('the downloaded PDF is searchable text with embedded fonts, not a raster', async ({ page }) => {
+test('the downloaded PDF is searchable text with embedded fonts, not a raster', async ({
+	page
+}) => {
 	await setSource(page, '# Searchable heading\n\nA sentence to find.');
 	const bytes = await download(page);
 
@@ -241,6 +265,73 @@ test('applying a preset changes the document without warnings', async ({ page })
 	expect(pdf.pageCount).toBeGreaterThanOrEqual(3); // the preset adds a cover
 });
 
+test('the downloaded PDF carries a bookmark tree built from the headings', async ({ page }) => {
+	await setSource(page, '# One\n\ntext\n\n## Under one\n\ntext\n\n# Two\n\ntext\n');
+
+	expect(await readOutline(await download(page))).toEqual([
+		{ title: 'One', depth: 0 },
+		{ title: 'Under one', depth: 1 },
+		{ title: 'Two', depth: 0 }
+	]);
+});
+
+test('the table of contents lists the headings with the page they start on', async ({ page }) => {
+	await setSource(page, '# First\n\ntext\n\n\\pagebreak\n\n## Second\n\ntext\n');
+
+	const contents = await openSection(page, 'Contents and numbering');
+	await afterRender(page, async () => {
+		await contents.getByLabel('Table of contents').check();
+	});
+
+	const pdf = await readPdf(await download(page));
+	// The contents page is inserted first, so the body runs from page 2.
+	expect(pdf.pages[0]).toContain('Contents');
+	expect(pdf.pages[0]).toMatch(/First\s*2/);
+	expect(pdf.pages[0]).toMatch(/Second\s*3/);
+});
+
+test('numbering headings reaches the PDF and the bookmarks together', async ({ page }) => {
+	await setSource(page, '# First\n\ntext\n\n## Second\n\ntext\n');
+
+	const contents = await openSection(page, 'Contents and numbering');
+	await afterRender(page, async () => {
+		await contents.getByLabel('Number headings').check();
+	});
+
+	const bytes = await download(page);
+	expect((await readPdf(bytes)).pages[0]).toContain('1.1 Second');
+	expect((await readOutline(bytes)).map((o) => o.title)).toEqual(['1 First', '1.1 Second']);
+});
+
+test('opening a Markdown file replaces the document', async ({ page }) => {
+	page.on('dialog', (dialog) => void dialog.accept());
+
+	await afterRender(page, async () => {
+		await page.locator('input[type=file][accept*=".md"]').setInputFiles({
+			name: 'notes-from-disk.md',
+			mimeType: 'text/markdown',
+			buffer: Buffer.from('# Opened from disk\n\nBody.\n')
+		});
+	});
+
+	await expect(page.locator('textarea.editor')).toHaveValue(/Opened from disk/);
+	expect((await readPdf(await download(page))).pages[0]).toContain('Opened from disk');
+});
+
+test('Save .md hands back the source, not the PDF', async ({ page }) => {
+	await setSource(page, '# Round trip\n\nExactly these bytes.\n');
+
+	const [event] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: 'Save .md' }).click()
+	]);
+
+	expect(event.suggestedFilename()).toMatch(/\.md$/);
+	expect((await downloadBytes(event)).toString('utf8')).toBe(
+		'# Round trip\n\nExactly these bytes.\n'
+	);
+});
+
 test('the About page describes the project and lists every bundled family', async ({ page }) => {
 	await expect(page).toHaveTitle('md2pdf');
 
@@ -316,12 +407,10 @@ test.describe('scrolling', () => {
 	test('the preview keeps its position across a re-render', async ({ page }) => {
 		await setSource(page, LONG_DOC);
 
-		const target = await page
-			.locator('.viewport')
-			.evaluate((el) => {
-				el.scrollTop = Math.round(el.scrollHeight * 0.5);
-				return el.scrollTop;
-			});
+		const target = await page.locator('.viewport').evaluate((el) => {
+			el.scrollTop = Math.round(el.scrollHeight * 0.5);
+			return el.scrollTop;
+		});
 		expect(target).toBeGreaterThan(0);
 
 		// The page indicator updates from the scroll event, so wait for it to
@@ -407,7 +496,10 @@ test.describe('scrolling', () => {
 		await page.waitForTimeout(2500);
 
 		const viewport = await metrics(page, '.viewport');
-		const pageWidth = await page.locator('.page').first().evaluate((el) => el.clientWidth);
+		const pageWidth = await page
+			.locator('.page')
+			.first()
+			.evaluate((el) => el.clientWidth);
 
 		expect(pageWidth).toBeGreaterThan(viewport.clientWidth);
 		expect(viewport.scrollWidth).toBeGreaterThanOrEqual(pageWidth);
@@ -427,14 +519,20 @@ test.describe('scrolling', () => {
 		// Fitting re-renders the preview without touching generation state, so
 		// poll rather than assuming it has landed by the time the PDF is ready.
 		await expect
-			.poll(async () => {
-				const box = await metrics(page, '.viewport');
-				return box.scrollWidth - box.clientWidth;
-			}, { timeout: 20_000 })
+			.poll(
+				async () => {
+					const box = await metrics(page, '.viewport');
+					return box.scrollWidth - box.clientWidth;
+				},
+				{ timeout: 20_000 }
+			)
 			.toBeLessThanOrEqual(1);
 
 		const viewport = await metrics(page, '.viewport');
-		const pageWidth = await page.locator('.page').first().evaluate((el) => el.clientWidth);
+		const pageWidth = await page
+			.locator('.page')
+			.first()
+			.evaluate((el) => el.clientWidth);
 		expect(pageWidth).toBeLessThanOrEqual(viewport.clientWidth);
 	});
 
@@ -459,7 +557,10 @@ test.describe('scrolling', () => {
 		const gaps = await page.evaluate(() => {
 			const view = document.querySelector('.viewport')!.getBoundingClientRect();
 			const sheet = document.querySelector('.page')!.getBoundingClientRect();
-			return { left: Math.round(sheet.left - view.left), right: Math.round(view.right - sheet.right) };
+			return {
+				left: Math.round(sheet.left - view.left),
+				right: Math.round(view.right - sheet.right)
+			};
 		});
 		expect(Math.abs(gaps.left - gaps.right)).toBeLessThanOrEqual(2);
 
@@ -493,6 +594,31 @@ test.describe('scrolling', () => {
 			const box = await metrics(page, selector);
 			expect(box.clientHeight, `${selector} collapsed`).toBeGreaterThan(100);
 			expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+		}
+	});
+
+	/**
+	 * The header is not a scroll container, so a toolbar wider than the window
+	 * is not merely ugly — every control past the right edge, Download PDF
+	 * included, becomes unreachable with no way to get at it.
+	 */
+	test('every toolbar control stays reachable at any width', async ({ page }) => {
+		for (const width of [375, 600, 900, 1280]) {
+			await page.setViewportSize({ width, height: 800 });
+
+			const header = await metrics(page, 'header');
+			expect(header.scrollWidth, `toolbar clipped at ${width}px`).toBeLessThanOrEqual(
+				header.clientWidth + 1
+			);
+
+			for (const name of ['Open', 'Save .md', 'Theme', 'Download PDF']) {
+				const box = await page.getByRole('button', { name, exact: true }).boundingBox();
+				expect(box, `${name} missing at ${width}px`).not.toBeNull();
+				expect(box!.x, `${name} off-screen at ${width}px`).toBeGreaterThanOrEqual(0);
+				expect(box!.x + box!.width, `${name} off-screen at ${width}px`).toBeLessThanOrEqual(
+					width + 1
+				);
+			}
 		}
 	});
 });
@@ -552,7 +678,9 @@ test.describe('theme number fields', () => {
 	 */
 	test('accept a value below the minimum while it is still being typed', async ({ page }) => {
 		const elements = await openSection(page, 'Elements');
-		const heading = elements.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) }).first();
+		const heading = elements
+			.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) })
+			.first();
 		if (!(await heading.evaluate((el) => (el as HTMLDetailsElement).open))) {
 			await heading.locator('summary').click();
 		}
@@ -574,7 +702,9 @@ test.describe('theme number fields', () => {
 	 */
 	test('keep the panel open and the field focused while typing', async ({ page }) => {
 		const elements = await openSection(page, 'Elements');
-		const heading = elements.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) }).first();
+		const heading = elements
+			.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) })
+			.first();
 		if (!(await heading.evaluate((el) => (el as HTMLDetailsElement).open))) {
 			await heading.locator('summary').click();
 		}
@@ -591,7 +721,9 @@ test.describe('theme number fields', () => {
 
 	test('clamp an out-of-range value once it settles', async ({ page }) => {
 		const elements = await openSection(page, 'Elements');
-		const heading = elements.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) }).first();
+		const heading = elements
+			.locator('details', { has: page.locator('summary', { hasText: 'Heading 1' }) })
+			.first();
 		if (!(await heading.evaluate((el) => (el as HTMLDetailsElement).open))) {
 			await heading.locator('summary').click();
 		}
@@ -702,7 +834,9 @@ test('pasting an image embeds it in the document', async ({ page }) => {
 		const file = new File([bytes], 'dot.png', { type: 'image/png' });
 		const data = new DataTransfer();
 		data.items.add(file);
-		el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+		el.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+		);
 	});
 
 	await expect(editor).toHaveValue(/!\[dot\]\(data:image\/png;base64,/);
@@ -721,7 +855,8 @@ test('theme fields are labelled for assistive technology', async ({ page }) => {
 		return controls
 			.filter((control) => {
 				if (control.getAttribute('aria-label')) return false;
-				if (control.id && panel.querySelector(`label[for="${CSS.escape(control.id)}"]`)) return false;
+				if (control.id && panel.querySelector(`label[for="${CSS.escape(control.id)}"]`))
+					return false;
 				if (control.closest('label')) return false;
 				return true;
 			})
@@ -740,9 +875,7 @@ test.describe('appearance', () => {
 
 		await select.selectOption('light');
 		expect(await theme(page)).toBe('light');
-		const lightBg = await page.evaluate(
-			() => getComputedStyle(document.body).backgroundColor
-		);
+		const lightBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
 		await select.selectOption('dark');
 		expect(await theme(page)).toBe('dark');
@@ -864,7 +997,9 @@ test.describe('scroll sync', () => {
 			el.dispatchEvent(new Event('scroll'));
 		});
 
-		await expect.poll(async () => (await offsets(page)).preview).toBeGreaterThan(before.preview + 50);
+		await expect
+			.poll(async () => (await offsets(page)).preview)
+			.toBeGreaterThan(before.preview + 50);
 	});
 
 	/** Fraction of the editor's scrollable range, so the assertion is positional. */
@@ -1006,9 +1141,16 @@ test.describe('font cache invalidation', () => {
 	test('box-drawing characters survive into the PDF', async ({ page }) => {
 		await setSource(
 			page,
-			['# Tree', '', '```', 'md2pdf/', '├── scripts/', '│   └── subset-fonts.md', '└── src/', '```'].join(
-				'\n'
-			)
+			[
+				'# Tree',
+				'',
+				'```',
+				'md2pdf/',
+				'├── scripts/',
+				'│   └── subset-fonts.md',
+				'└── src/',
+				'```'
+			].join('\n')
 		);
 
 		const pdf = await readPdf(await download(page));
@@ -1108,7 +1250,8 @@ test.describe('colour emoji artwork', () => {
 });
 
 test('a mid-sentence image reaches the downloaded PDF', async ({ page }) => {
-	const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
+	const png =
+		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
 	await setSource(page, `Before ![alt](${png}) after it.`);
 
 	const bytes = await download(page);

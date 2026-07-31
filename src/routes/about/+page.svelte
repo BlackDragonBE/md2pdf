@@ -34,8 +34,8 @@
 		Markdown is parsed to a token stream, turned into a document definition, and rendered to PDF by
 		<a href="https://github.com/bpampuch/pdfmake" rel="noreferrer">pdfmake</a> in a Web Worker. The
 		preview you see is that exact PDF, rasterised by
-		<a href="https://github.com/mozilla/pdf.js" rel="noreferrer">pdf.js</a>. Preview and download are
-		the same bytes — there is no second renderer for them to disagree about.
+		<a href="https://github.com/mozilla/pdf.js" rel="noreferrer">pdf.js</a>. Preview and download
+		are the same bytes — there is no second renderer for them to disagree about.
 	</p>
 	<p>
 		Everything visual is a theme field: page geometry, three font slots, per-element typography and
@@ -45,20 +45,20 @@
 	</p>
 	<p>
 		The document, your theme and any fonts you use are stored locally — <code>localStorage</code> for
-		text and settings, IndexedDB for font binaries — so it works offline after the first visit and
-		installs as an app.
+		text and settings, IndexedDB for font binaries — so it works offline after the first visit and installs
+		as an app.
 	</p>
 
 	<h2>Fonts</h2>
 	<p>
-		Twelve text families are bundled as subsetted <em>static</em> instances, four real faces each.
-		You can also upload your own TTF or OTF, or pull a family from Google Fonts.
+		Twelve text families are bundled as subsetted <em>static</em> instances, four real faces each. You
+		can also upload your own TTF or OTF, or pull a family from Google Fonts.
 	</p>
 	<p>
 		A thirteenth, Noto Emoji, is never a font slot you can pick. pdfmake binds one font per run of
-		text and pdfkit has no glyph fallback, so an emoji in a Latin-subset family is a blank box.
-		Runs containing emoji are cut out and pointed at this family instead, and it is fetched only
-		for a document that has emoji in it.
+		text and pdfkit has no glyph fallback, so an emoji in a Latin-subset family is a blank box. Runs
+		containing emoji are cut out and pointed at this family instead, and it is fetched only for a
+		document that has emoji in it.
 	</p>
 
 	<p>
@@ -95,17 +95,17 @@
 	<h2>Emoji</h2>
 	<p>
 		Emoji render in <strong>colour</strong>, as vector artwork rather than glyphs. A PDF cannot
-		carry a colour font at all — the format has no such concept, and pdfkit embeds outlines only
-		— so each emoji is drawn into the page as a small picture instead. That also means they stay
-		sharp at any zoom or print size, and the document embeds no raster images.
+		carry a colour font at all — the format has no such concept, and pdfkit embeds outlines only —
+		so each emoji is drawn into the page as a small picture instead. That also means they stay sharp
+		at any zoom or print size, and the document embeds no raster images.
 	</p>
 	<p>
 		The artwork is
 		<a href="https://github.com/jdecked/twemoji" rel="noreferrer">Twemoji</a>, 3,720 emoji packed
 		into a single ~1.4 MB archive that is fetched the first time you use one and then cached. A
-		document with no emoji never downloads it. Where a sequence has no artwork — or on a first
-		visit while offline — the monochrome Noto Emoji font above is used instead, so emoji never
-		fall back to blank boxes.
+		document with no emoji never downloads it. Where a sequence has no artwork — or on a first visit
+		while offline — the monochrome Noto Emoji font above is used instead, so emoji never fall back
+		to blank boxes.
 	</p>
 	<p class="attribution">
 		Twemoji artwork is © Twitter and the Twemoji contributors, licensed
@@ -121,8 +121,7 @@
 			<a href="https://github.com/markdown-it/markdown-it" rel="noreferrer">markdown-it</a> — MIT
 		</li>
 		<li>
-			<a href="https://github.com/highlightjs/highlight.js" rel="noreferrer">highlight.js</a> —
-			BSD-3-Clause
+			<a href="https://github.com/highlightjs/highlight.js" rel="noreferrer">highlight.js</a> — BSD-3-Clause
 		</li>
 		<li><a href="https://github.com/fontello/wawoff2" rel="noreferrer">wawoff2</a> — MIT</li>
 		<li><a href="https://github.com/101arrowz/fflate" rel="noreferrer">fflate</a> — MIT</li>

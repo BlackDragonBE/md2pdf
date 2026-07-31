@@ -1,6 +1,7 @@
 import type Token from 'markdown-it/lib/token.mjs';
 import type { ElementKey, Theme } from '../theme/schema';
 import { clusters, splitEmojiRuns } from './emoji';
+import { destinationFor } from './headings';
 import { drawWidth, type ResolvedImage } from './images';
 import type { InlineArtwork, TextRun } from './pdfmake-types';
 import type { FontMap } from './styles';
@@ -14,12 +15,19 @@ export interface InlineContext {
 	emojiArt: Map<string, string>;
 	/** Content column width in pt, for sizing inline images. */
 	contentWidth: number;
+	/** Anchor → pdfmake node id, for `[text](#slug)` and `[[#Heading]]`. */
+	destinations: Map<string, string>;
+	/** `^block-id` → pdfmake node id, for `[[#^block-id]]`. */
+	blockAnchors: Map<string, string>;
 }
 
 export type InlineContent = TextRun | InlineArtwork;
 
 /** markdown-it Tokens survive structuredClone as plain objects; read attrs directly. */
-export function attrGet(token: Token | { attrs?: [string, string][] | null }, name: string): string | null {
+export function attrGet(
+	token: Token | { attrs?: [string, string][] | null },
+	name: string
+): string | null {
 	const attrs = token.attrs;
 	if (!attrs) return null;
 	for (const [k, v] of attrs) if (k === name) return v;
@@ -37,6 +45,15 @@ interface Format {
 const BASE: Format = { bold: false, italics: false, strike: false, mark: false, link: null };
 
 const CHECKBOX = /^<input\b[^>]*type=["']?checkbox/i;
+
+/** markdown-it percent-encodes hrefs, so a non-ASCII anchor arrives escaped. */
+function decodeAnchor(fragment: string): string {
+	try {
+		return decodeURIComponent(fragment);
+	} catch {
+		return fragment;
+	}
+}
 
 /**
  * Flatten an inline token's children into pdfmake runs.
@@ -68,7 +85,15 @@ export function renderInline(
 		}
 		// A highlighted link keeps the link colour, as it does in Obsidian.
 		if (f.link !== null) {
-			run.link = f.link;
+			// `#anchor` jumps within the PDF instead of opening a URL. An anchor no
+			// heading matches gets neither: `link: '#gone'` would be handed to the
+			// reader's browser as an external address.
+			if (f.link.startsWith('#')) {
+				const dest = destinationFor(ctx, decodeAnchor(f.link.slice(1)));
+				if (dest) run.linkToDestination = dest;
+			} else {
+				run.link = f.link;
+			}
 			run.color = ctx.theme.link.color;
 			if (ctx.theme.link.underline) run.decoration = 'underline';
 		}
@@ -216,9 +241,11 @@ function emojiSize(run: TextRun, ctx: InlineContext): number {
 }
 
 /**
- * A wikilink points into a vault that a standalone PDF has no access to, so it
- * renders as styled text, never a hyperlink. `[[Note#Heading]]` without an
- * alias reads as `Note > Heading`, the way Obsidian shows it.
+ * A wikilink that names another note points into a vault a standalone PDF has
+ * no access to, so it renders as styled text. One that names no note — a
+ * `[[#Heading]]` or `[[#^block-id]]` — is a link into *this* document, and
+ * becomes a real jump. `[[Note#Heading]]` without an alias reads as
+ * `Note > Heading`, the way Obsidian shows it.
  */
 function wikilinkRun(
 	tok: Token,
@@ -239,6 +266,14 @@ function wikilinkRun(
 	const extra: Partial<TextRun> = { color: o.wikilinks.color };
 	if (o.wikilinks.italics || (embed && o.embeds.italics)) extra.italics = true;
 	if (o.wikilinks.underline) extra.decoration = 'underline';
+
+	// Only with no target: `[[Other#Heading]]` names a heading in a note that is
+	// not in this PDF, and pointing it at a same-named heading here would send
+	// the reader somewhere the document never said.
+	if (!target && section) {
+		const dest = destinationFor(ctx, section, attrGet(tok, 'block') === '1');
+		if (dest) extra.linkToDestination = dest;
+	}
 	return { text, extra };
 }
 
@@ -276,12 +311,7 @@ export function coalesce(runs: InlineContent[]): InlineContent[] {
 	const out: InlineContent[] = [];
 	for (const run of runs) {
 		const prev = out[out.length - 1];
-		if (
-			prev &&
-			'text' in prev &&
-			'text' in run &&
-			sameFormat(prev as TextRun, run as TextRun)
-		) {
+		if (prev && 'text' in prev && 'text' in run && sameFormat(prev as TextRun, run as TextRun)) {
 			(prev as TextRun).text += (run as TextRun).text;
 			continue;
 		}
@@ -297,6 +327,7 @@ function sameFormat(a: TextRun, b: TextRun): boolean {
 		a.italics === b.italics &&
 		a.decoration === b.decoration &&
 		a.link === b.link &&
+		a.linkToDestination === b.linkToDestination &&
 		a.color === b.color &&
 		a.background === b.background &&
 		a.sup === b.sup &&

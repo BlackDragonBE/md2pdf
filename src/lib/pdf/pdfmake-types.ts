@@ -26,6 +26,8 @@ export interface TextRun {
 	decorationStyle?: 'dashed' | 'dotted' | 'double' | 'wavy';
 	decorationColor?: string;
 	link?: string;
+	/** Jump to a node whose `id` is this string. Set by `[text](#slug)`. */
+	linkToDestination?: string;
 	style?: string;
 	characterSpacing?: number;
 	lineHeight?: number;
@@ -66,6 +68,10 @@ export interface TextNode extends Omit<TextRun, 'text'> {
 	margin?: Margin;
 	pageBreak?: 'before' | 'after';
 	headlineLevel?: number;
+	/** Collect this node into the table of contents. */
+	tocItem?: boolean;
+	/** Indent of this node's line in the table of contents. */
+	tocMargin?: Margin;
 	absolutePosition?: { x: number; y: number };
 	relativePosition?: { x: number; y: number };
 	width?: number;
@@ -189,10 +195,21 @@ export interface QrNode {
 	fit?: number;
 }
 
+/** pdfmake fills `_items` from every `tocItem` node during preprocessing. */
+export interface TocNode {
+	toc: {
+		title?: TextNode;
+		textStyle?: string;
+		numberStyle?: string;
+		textMargin?: Margin;
+	};
+}
+
 export type Content =
 	| string
 	| TextRun
 	| TextNode
+	| TocNode
 	| ImageNode
 	| SvgNode
 	| CanvasNode

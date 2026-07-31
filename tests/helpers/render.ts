@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import PdfPrinter from 'pdfmake/src/printer.js';
 import { buildDocDefinition, type Anchor } from '../../src/lib/pdf/buildDocDefinition';
 import { buildLayouts } from '../../src/lib/pdf/layouts';
+import { applyOutline } from '../../src/lib/pdf/outline';
 import { parse, parseOptionsFor } from '../../src/lib/markdown/parse';
 import { EMOJI_FAMILY_ID } from '../../src/lib/fonts/types';
 import { hasEmoji } from '../../src/lib/pdf/emoji';
@@ -63,7 +64,13 @@ export async function renderMarkdown(
 	const theme = options.theme ?? cloneDefaultTheme();
 	const parsed = parse(source, parseOptionsFor(theme), options.meta ?? {});
 
-	const ids = [...new Set(Object.values(theme.fonts).map((s) => (s.source.kind === 'builtin' ? s.source.id : s.fallback)))];
+	const ids = [
+		...new Set(
+			Object.values(theme.fonts).map((s) =>
+				s.source.kind === 'builtin' ? s.source.id : s.fallback
+			)
+		)
+	];
 	const roles: FontMap = {
 		body: `b_${theme.fonts.body.source.kind === 'builtin' ? theme.fonts.body.source.id : theme.fonts.body.fallback}`,
 		heading: `b_${theme.fonts.heading.source.kind === 'builtin' ? theme.fonts.heading.source.id : theme.fonts.heading.fallback}`,
@@ -77,7 +84,7 @@ export async function renderMarkdown(
 		roles.emoji = `b_${EMOJI_FAMILY_ID}`;
 	}
 
-	const { docDefinition, warnings, anchors } = buildDocDefinition({
+	const { docDefinition, warnings, headings, anchors } = buildDocDefinition({
 		tokens: parsed.tokens,
 		theme,
 		meta: parsed.meta,
@@ -87,7 +94,13 @@ export async function renderMarkdown(
 	});
 
 	const printer = new PdfPrinter(printerFonts(ids));
-	const doc = printer.createPdfKitDocument(docDefinition, { tableLayouts: buildLayouts(theme) });
+	// bufferPages, and the outline applied here rather than inside
+	// buildDocDefinition, because both are post-layout work — see pdf/outline.ts.
+	const doc = printer.createPdfKitDocument(docDefinition, {
+		tableLayouts: buildLayouts(theme),
+		bufferPages: true
+	});
+	applyOutline(doc, headings, anchors);
 
 	const chunks: Uint8Array[] = [];
 	const buffer = await new Promise<Buffer>((resolve, reject) => {
@@ -158,6 +171,69 @@ export async function extract(buffer: Buffer): Promise<ExtractedPdf> {
 		fontNames: [...fontNames],
 		items: geometry
 	};
+}
+
+export interface OutlineEntry {
+	title: string;
+	/** Depth in the bookmark tree; 0 is a top-level item. */
+	depth: number;
+	/** 1-based page the bookmark points at. */
+	page: number;
+}
+
+export interface Navigation {
+	outline: OutlineEntry[];
+	/** Named destinations reached by a link annotation, per page. */
+	links: { page: number; dest: string }[];
+}
+
+/**
+ * The parts of the PDF that are navigation rather than ink: the bookmark tree
+ * and the internal link annotations. Neither shows up in extracted text, so
+ * nothing else in the suite would notice if they silently stopped working.
+ */
+export async function extractNavigation(buffer: Buffer): Promise<Navigation> {
+	const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+	const doc = await pdfjs.getDocument({
+		data: new Uint8Array(buffer),
+		useSystemFonts: false,
+		disableFontFace: true
+	}).promise;
+
+	// A destination is a reference to a page object; only pdf.js can resolve it.
+	const pageOf = async (dest: unknown): Promise<number> => {
+		const resolved = typeof dest === 'string' ? await doc.getDestination(dest) : dest;
+		if (!Array.isArray(resolved)) return 0;
+		return (await doc.getPageIndex(resolved[0] as never)) + 1;
+	};
+
+	interface RawOutline {
+		title: string;
+		dest: unknown;
+		items: RawOutline[];
+	}
+	const outline: OutlineEntry[] = [];
+	const walk = async (items: RawOutline[], depth: number) => {
+		for (const item of items) {
+			outline.push({ title: item.title, depth, page: await pageOf(item.dest) });
+			await walk(item.items ?? [], depth + 1);
+		}
+	};
+	await walk(((await doc.getOutline()) ?? []) as RawOutline[], 0);
+
+	const links: { page: number; dest: string }[] = [];
+	for (let i = 1; i <= doc.numPages; i++) {
+		const page = await doc.getPage(i);
+		for (const a of await page.getAnnotations()) {
+			const annotation = a as { subtype?: string; dest?: unknown; url?: string };
+			if (annotation.subtype !== 'Link' || typeof annotation.dest !== 'string') continue;
+			links.push({ page: i, dest: annotation.dest });
+		}
+		page.cleanup();
+	}
+
+	await doc.destroy();
+	return { outline, links };
 }
 
 export async function renderAndExtract(

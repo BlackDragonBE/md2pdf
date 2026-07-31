@@ -11,7 +11,7 @@ dependency moves.
 **Yes.** No fallback needed.
 
 `src/lib/workers/pdf.worker.ts` imports `pdfmake/build/pdfmake` in a module
-worker and generates without touching `window`. Verified in the *production*
+worker and generates without touching `window`. Verified in the _production_
 build, not just dev — a Playwright test asserts the main-thread fallback banner
 is absent:
 
@@ -23,7 +23,7 @@ The fallback in `pdf.svelte.ts` is retained anyway: it costs a `try`/`catch` and
 covers browsers that refuse module workers.
 
 **One deviation was forced.** §8 posts a finished `TDocumentDefinitions` to the
-worker, but §12.1 requires `background`, `header` and `footer` to be *functions*,
+worker, but §12.1 requires `background`, `header` and `footer` to be _functions_,
 which cannot be structured-cloned. The token stream, theme, metadata and
 pre-resolved images cross the boundary instead, and `buildDocDefinition` — which
 is synchronous precisely so it can — runs worker-side. See
@@ -40,15 +40,15 @@ shape; a range (`wght@400..700`) is not.
 
 Also confirmed against the live endpoints:
 
-| Observation | Result |
-|---|---|
-| `css2` CORS | `access-control-allow-origin: *` |
-| `gstatic` CORS | `access-control-allow-origin: *` |
-| Browser UA | `format('woff2')` |
-| Legacy UA | `format('truetype')` |
-| Unknown family | HTTP **400** (not 404) |
-| Family without the requested weight (Lobster `wght@700`) | HTTP 400 |
-| Family without italics (Oswald `ital,wght@1,400`) | HTTP 400 |
+| Observation                                              | Result                           |
+| -------------------------------------------------------- | -------------------------------- |
+| `css2` CORS                                              | `access-control-allow-origin: *` |
+| `gstatic` CORS                                           | `access-control-allow-origin: *` |
+| Browser UA                                               | `format('woff2')`                |
+| Legacy UA                                                | `format('truetype')`             |
+| Unknown family                                           | HTTP **400** (not 404)           |
+| Family without the requested weight (Lobster `wght@700`) | HTTP 400                         |
+| Family without italics (Oswald `ital,wght@1,400`)        | HTTP 400                         |
 
 The last two matter: a 400 does not mean "no such family". `google.ts` treats a
 failed italic as routine (alias plus warning) and only a failed upright as an
@@ -59,7 +59,7 @@ survives, because this was verified for a sample of families, not all of them.
 
 ## 3. Is `wawoff2` output TTF-compatible for pdfkit?
 
-**Yes** — but *getting* the output was the real problem.
+**Yes** — but _getting_ the output was the real problem.
 
 ### The output format
 
@@ -73,7 +73,7 @@ pdfkit accepted the decoded font: %PDF- … /FontFile2: true
 ```
 
 No separate CFF/OTF handling was needed. `decodeFont()` additionally short
-circuits when the download is *already* a font, which covers the legacy-UA
+circuits when the download is _already_ a font, which covers the legacy-UA
 `truetype` response shape.
 
 ### `wawoff2` cannot be `import`ed in a bundled browser app
@@ -91,7 +91,7 @@ Two independent causes, found by bisecting the package:
    global away, so the import resolves to an object with no `decompress` on it.
    (`decompress` is registered by embind at runtime, so it is never visible to
    static export detection either.)
-2. `wawoff2/index.js` requires the binding and only *then* assigns
+2. `wawoff2/index.js` requires the binding and only _then_ assigns
    `em_module.onRuntimeInitialized`. If the runtime has already finished, the
    hook never fires and its `await runtimeInit` waits forever.
 
@@ -149,13 +149,13 @@ watermark also appears on the cover page.
 Generation is **linear at roughly 3 ms/page**. Measured with
 `npx vite-node -c vitest.config.ts scripts/measure-ceiling.mjs`:
 
-| Pages | Generate | ms/page | Size |
-|---:|---:|---:|---:|
-| 10 | 79 ms | 8 | 44 KB |
-| 22 | 85 ms | 4 | 88 KB |
-| 47 | 155 ms | 3 | 175 KB |
-| 93 | 292 ms | 3 | 339 KB |
-| 187 | 622 ms | 3 | 667 KB |
+| Pages | Generate | ms/page |   Size |
+| ----: | -------: | ------: | -----: |
+|    10 |    79 ms |       8 |  44 KB |
+|    22 |    85 ms |       4 |  88 KB |
+|    47 |   155 ms |       3 | 175 KB |
+|    93 |   292 ms |       3 | 339 KB |
+|   187 |   622 ms |       3 | 667 KB |
 
 Node-side, so this excludes worker transfer and pdf.js rasterisation — treat it
 as a floor for the browser, not a prediction.

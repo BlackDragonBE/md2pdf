@@ -1,0 +1,18 @@
+# Generated or vendored — nothing here is hand-edited.
+build/
+.svelte-kit/
+node_modules/
+test-results/
+playwright-report/
+package-lock.json
+
+# Committed build outputs of scripts/build_fonts.py and scripts/build_emoji.py.
+static/fonts/
+static/emoji/
+
+# Verbatim upstream diff; reformatting it would stop it applying.
+patches/
+
+# Test data, not prose. Golden tests assert page breaks and line numbers against
+# these exact bytes, so reformatting them would rewrite the expectations.
+tests/fixtures/

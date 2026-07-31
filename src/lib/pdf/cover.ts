@@ -22,12 +22,7 @@ function blockText(block: CoverBlockT, meta: DocMeta, t: Theme): string {
  * callback receives `pageSize`, and pdfmake's content flow has no vertical
  * alignment, so `y: "38%"` has nowhere else to live (§12.1).
  */
-export function buildCover(
-	t: Theme,
-	pageSize: PageSize,
-	meta: DocMeta,
-	fonts: FontMap
-): Content {
+export function buildCover(t: Theme, pageSize: PageSize, meta: DocMeta, fonts: FontMap): Content {
 	const layers: Content[] = [backgroundFill(t.cover.background.color, pageSize)];
 	if (t.cover.background.image) {
 		layers.push(backgroundImage(t.cover.background.image, pageSize));

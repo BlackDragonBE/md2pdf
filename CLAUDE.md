@@ -38,7 +38,7 @@ Fonts are rebuilt by `python scripts/build_fonts.py` (needs `fonttools brotli`).
 one-time manual step whose outputs are committed — CI has no Python dependency, and there
 is deliberately no npm script for it. See `scripts/subset-fonts.md`.
 
-`vitest.config.ts` deliberately does *not* use the SvelteKit plugin: the suites exercise
+`vitest.config.ts` deliberately does _not_ use the SvelteKit plugin: the suites exercise
 pure modules plus a Node-side `pdfmake` printer, so `$app/*` virtual modules would only
 add failure surface. Anything importing `$app/paths` or `$app/environment` is therefore
 untestable there by construction — keep that logic out of the pure modules.
@@ -77,14 +77,14 @@ so past the limit the app warns rather than refusing.
 
 ### Layers
 
-| Path | Role |
-|---|---|
-| `src/lib/markdown/` | markdown-it setup, front matter, `<!-- pagebreak -->` plugin, `obsidian.ts`. `html: false` is non-negotiable — raw HTML must never reach the PDF. |
-| `src/lib/pdf/` | Token stream → pdfmake document definition. `buildDocDefinition` orchestrates; `blocks`/`inline`/`tables`/`cover`/`headerFooter`/`watermark`/`styles` each own one concern. |
-| `src/lib/fonts/` | `resolve.ts` per-slot resolution with fallback, `builtin`/`google`/`upload` loaders, `cache.ts` IndexedDB, `register.ts` → pdfmake VFS. |
-| `src/lib/theme/` | Zod schema, defaults, `migrate.ts` (version-keyed, must never throw), `io.ts` import/export, JSON presets. |
-| `src/lib/preview/` | pdf.js rendering, `scrollSync`/`lineMetrics`/`scrollAnchor`. |
-| `src/lib/stores/*.svelte.ts` | Svelte 5 rune classes, single instances exported at the bottom. `persist.ts` wraps localStorage; binaries go to IndexedDB. |
+| Path                         | Role                                                                                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/lib/markdown/`          | markdown-it setup, front matter, `<!-- pagebreak -->` plugin, `obsidian.ts`. `html: false` is non-negotiable — raw HTML must never reach the PDF.                                                      |
+| `src/lib/pdf/`               | Token stream → pdfmake document definition. `buildDocDefinition` orchestrates; `blocks`/`inline`/`tables`/`cover`/`headerFooter`/`watermark`/`styles`/`headings`/`toc`/`outline` each own one concern. |
+| `src/lib/fonts/`             | `resolve.ts` per-slot resolution with fallback, `builtin`/`google`/`upload` loaders, `cache.ts` IndexedDB, `register.ts` → pdfmake VFS.                                                                |
+| `src/lib/theme/`             | Zod schema, defaults, `migrate.ts` (version-keyed, must never throw), `io.ts` import/export, JSON presets.                                                                                             |
+| `src/lib/preview/`           | pdf.js rendering, `scrollSync`/`lineMetrics`/`scrollAnchor`.                                                                                                                                           |
+| `src/lib/stores/*.svelte.ts` | Svelte 5 rune classes, single instances exported at the bottom. `persist.ts` wraps localStorage; binaries go to IndexedDB.                                                                             |
 
 ### Obsidian Flavored Markdown
 
@@ -97,7 +97,7 @@ markdown-it-footnote — reimplementing markdown-it's delimiter and
 reference machinery would be strictly worse than two zero-dependency plugins by
 its own author.
 
-- **Every feature gates *parsing*, not styling.** `theme.obsidian.*.enabled` is
+- **Every feature gates _parsing_, not styling.** `theme.obsidian.*.enabled` is
   read by `parseOptionsFor()` and decides which rules are registered at all, so
   a document that means something else by `[[` or `^id` keeps it literal. The
   parser cache in `parse.ts` is keyed on those flags plus the marker.
@@ -106,16 +106,49 @@ its own author.
   retyped to `callout_title_*` and tokenised by the normal `inline` rule
   afterwards. Running it later would mean re-tokenising by hand.
 - **`%`, `^` and `#` are markdown-it terminator characters**, so `%%…%%`, `^id`
-  and `#tag` work as ordinary inline rules. Only a comment spanning a *blank
-  line* needs a block rule, because no inline rule can see across one.
+  and `#tag` work as ordinary inline rules. Only a comment spanning a _blank
+  line_ needs a block rule, because no inline rule can see across one.
 - **The tag rule's negative cases are the load-bearing ones.** A numeric `#1234`
   is not a tag (issue references), and `#` preceded by a word character is not
   one (`example.com#frag`, `C#`). `#tag` at the start of a line reaches the rule
   because ATX headings require a space after the hashes. Tests pin all of it.
 - **A callout's layout object is built inline, not in `buildLayouts`** — bar and
   tint colours vary per type, and `buildLayouts` returns one shared set.
-- **There is no vault**, so a wikilink is styled text, never a hyperlink, and an
-  embed prints a reference to its target.
+- **There is no vault**, so a wikilink _naming another note_ is styled text, never a
+  hyperlink. One naming no note — `[[#Heading]]`, `[[#^block-id]]` — points inside this
+  document and does become a real jump; `splitSection` therefore reports whether the `^`
+  was there rather than merely stripping it, because `[[#intro]]` and `[[#^intro]]` name
+  different things. An embed prints a reference to its target.
+
+### Navigation: bookmarks, contents, internal links
+
+`headings.ts` scans the token stream once, before rendering, and that table is
+the single source of truth for all three. It has to run first: an anchor can
+point at a heading further down, and the numbering must be settled before the
+first heading renders.
+
+- **Bookmarks are applied after layout, not built into the document
+  definition.** pdfmake has no outline concept at all; `outline.ts` reaches the
+  pdfkit document both render paths already hold — `_createDoc` in `engine.ts`,
+  `createPdfKitDocument` in `tests/helpers/render.ts` — and drives
+  `switchToPage` + `outline.addItem`. That needs **`bufferPages: true`**, which
+  both callers pass: without it pdfkit has flushed every page but the last and
+  nothing earlier can be pointed at. The page a heading landed on comes from
+  `anchors`, which is why this cannot happen any earlier.
+- **A heading's inline runs carry no run-level `style`** (`tocSafe` in
+  `blocks.ts`). pdfmake's TOC reuses the heading's _exact_ `text` array as the
+  contents line, so a run still saying `h1` prints the entry at 26pt and ignores
+  `tocEntry` entirely. The node's own style covers those runs in the document,
+  so nothing changes there — but strip it and the golden test that measures the
+  entry's font size is the only thing that notices.
+- **The destination for a heading is its scroll-sync id.** `L<line>` is already
+  a pdfmake node id, and pdfmake registers a named destination for every id, so
+  `[text](#slug)` resolves the slug to `L<line>` and there is no second id
+  scheme. An unresolved anchor gets **neither** `link` nor `linkToDestination`:
+  `link: '#gone'` would be handed to the reader as an external address.
+- **`toc.pageBreakAfter` is a spacer node, not a flag on the TOC**, because
+  pdfmake replaces the toc node with a table at layout time and `pageBreak` does
+  not survive that.
 
 ### Scroll sync
 
@@ -182,7 +215,7 @@ matter when touching it:
   by nothing else, so without it `coalesce` merges them straight back into the text family
   and the split silently does nothing.
 - **Routing is deliberately conservative.** The theme draws `•`, `☑`, `✓` and box drawing
-  from the *text* font; only astral pictographs, `Emoji_Presentation=Yes` BMP codepoints
+  from the _text_ font; only astral pictographs, `Emoji_Presentation=Yes` BMP codepoints
   and VS16/keycap sequences move. A unit test pins both directions.
 - **Clusters, not codepoints.** ZWJ families, skin tones, flag pairs and keycaps have to
   stay in one run or GSUB never sees the sequence.
@@ -201,16 +234,16 @@ read `patches/README.md` before touching any of it.
   Patching only `src/` turns the whole Node suite green while the app stays broken. This
   already happened once: a truncated hunk dropped the `else` that measures every ordinary
   word, all 359 tests passed, and the browser could not lay out any text at all.
-  `tests/unit/pdfmakePatch.test.ts` therefore asserts the *surviving original behaviour*,
+  `tests/unit/pdfmakePatch.test.ts` therefore asserts the _surviving original behaviour_,
   not the marker comment, and the E2E test is the only thing that exercises the bundle.
 - **The hunks must introduce no `require`.** In the bundle, imports are numeric webpack
-  module ids. Callers pass explicit `width` *and* `height` so nothing needs measuring.
+  module ids. Callers pass explicit `width` _and_ `height` so nothing needs measuring.
 - **`pdfmake` is pinned exactly.** `npm install` rewrites it back to a caret whenever it
   re-resolves the package; the guard test catches that.
 
 ## Colour emoji
 
-PDF has no colour-font concept, so no emoji *font* can ever be coloured — pdfkit embeds
+PDF has no colour-font concept, so no emoji _font_ can ever be coloured — pdfkit embeds
 outlines only. Emoji are drawn as **vector artwork** inline instead (Twemoji, CC-BY 4.0,
 attributed on the About page).
 
@@ -239,7 +272,7 @@ Two service-worker bugs specific to a project site, both fixed in
 
 - **@vite-pwa/sveltekit derives its precache prefix from Vite's `base`**, which SvelteKit
   leaves at `/` while serving from `paths.base`. The shell was precached as root-absolute
-  `/`, and since `navigateFallback` binds to that URL the worker answered *every* in-scope
+  `/`, and since `navigateFallback` binds to that URL the worker answered _every_ in-scope
   navigation with whatever lives at the domain root. Precache URLs are now scope-relative,
   so one build is correct at `/` and at `/<repo>/`.
 - **The webmanifest was contributed twice** with different revisions, which workbox
@@ -261,7 +294,7 @@ Five places the spec did not survive implementation. Each is commented at the si
    while every text-content assertion still passes. Side effect: pdfmake stamps every page,
    so a watermark also lands on the cover. `src/lib/pdf/watermark.ts`.
 4. **`wawoff2` is loaded as a classic script, not imported.** §7.4's `await
-   import('wawoff2')` never settles in a bundled browser app — the Emscripten binding only
+import('wawoff2')` never settles in a bundled browser app — the Emscripten binding only
    assigns `module.exports` under Node and races its own readiness hook. Symptom: font
    resolution hangs and the render sits on "generating…" forever with no error to catch.
    `loadWoff2Binding()` in `src/lib/fonts/google.ts`.
@@ -278,14 +311,16 @@ Five places the spec did not survive implementation. Each is commented at the si
   versions.
 - **E2E** — Playwright against the production build only, because the pdf.js worker and
   base-path behaviour differ there. Downloads are parsed with pdf.js and compared to the
-  preview.
+  preview. It is also the only coverage of the _prebuilt pdfmake bundle_ — the bookmark
+  test lives there for the same reason the inline-artwork one does (see the patch section
+  above): the golden suite runs `pdfmake/src` and would pass with the bundle broken.
 - **Layout assertions are load-bearing.** Several of the worst bugs so far were CSS and
   invisible to type checks, unit tests and byte comparison. The suite asserts measured
   geometry — keep that habit when touching layout. What it has caught:
 
-| Symptom | Cause |
-|---|---|
-| Nothing scrolled anywhere | panes defaulted to `min-height: auto` and overflowed their track |
-| Left of the page unreachable when zoomed | `align-items: center` on the scroll container |
-| Every keystroke after the first ignored | `<details open={prop}>` re-applied on re-render, collapsing the panel and dropping focus |
-| `12` typed into a field became `42` | clamping on every keystroke |
+| Symptom                                  | Cause                                                                                    |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Nothing scrolled anywhere                | panes defaulted to `min-height: auto` and overflowed their track                         |
+| Left of the page unreachable when zoomed | `align-items: center` on the scroll container                                            |
+| Every keystroke after the first ignored  | `<details open={prop}>` re-applied on re-render, collapsing the panel and dropping focus |
+| `12` typed into a field became `42`      | clamping on every keystroke                                                              |

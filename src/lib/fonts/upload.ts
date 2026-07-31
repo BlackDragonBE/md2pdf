@@ -1,9 +1,7 @@
 import { getUpload, listUploads, putUpload, type UploadRecord } from './cache';
 import { completeFaces, FACE_KEYS, type FaceBuffers, type FaceKey } from './types';
 
-export type SniffResult =
-	| { ok: true; format: 'ttf' | 'otf' }
-	| { ok: false; reason: string };
+export type SniffResult = { ok: true; format: 'ttf' | 'otf' } | { ok: false; reason: string };
 
 /**
  * Validate magic bytes, not the file extension — a renamed .woff2 must be
@@ -20,7 +18,8 @@ export function sniffFont(buffer: ArrayBuffer): SniffResult {
 		view.getUint8(3)
 	);
 
-	if (tag === 0x00010000 || ascii === 'true' || ascii === 'ttcf') return { ok: true, format: 'ttf' };
+	if (tag === 0x00010000 || ascii === 'true' || ascii === 'ttcf')
+		return { ok: true, format: 'ttf' };
 	if (ascii === 'OTTO') return { ok: true, format: 'otf' };
 	if (ascii === 'wOFF' || ascii === 'wOF2') {
 		return {

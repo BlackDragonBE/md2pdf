@@ -389,7 +389,8 @@ describe('code blocks', () => {
  * than fetched, so these never touch the network.
  */
 describe('colour emoji', () => {
-	const FIRE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#F4900C" d="M18 2s10 8 10 20a10 10 0 0 1-20 0C8 10 18 2 18 2z"/></svg>';
+	const FIRE =
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#F4900C" d="M18 2s10 8 10 20a10 10 0 0 1-20 0C8 10 18 2 18 2z"/></svg>';
 	const art = new Map([['\u{1F525}', FIRE]]);
 
 	it('draws the artwork and keeps the sentence on one line', async () => {
@@ -419,7 +420,8 @@ describe('colour emoji', () => {
 });
 
 describe('mid-sentence images', () => {
-	const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
+	const PNG =
+		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQaztBEmIY1TCqYfhqAABrG3wQY1e8RAAAAABJRU5ErkJggg==';
 	const images = new Map<string, ResolvedImage>([
 		['pic.png', { kind: 'ok', dataUri: PNG, width: 16, height: 16 }]
 	]);

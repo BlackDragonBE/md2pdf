@@ -30,7 +30,9 @@
 		['tableHeader', 'Table header'],
 		['tableCell', 'Table cell'],
 		['calloutTitle', 'Callout title'],
-		['footnote', 'Footnote']
+		['footnote', 'Footnote'],
+		['tocTitle', 'Contents title'],
+		['tocEntry', 'Contents entry']
 	];
 
 	const TEMPLATE_HINT = '{{page}} {{pages}} {{title}} {{subtitle}} {{author}} {{date}}';
@@ -229,10 +231,7 @@
 			<select
 				value={t.page.orientation}
 				onchange={(e) =>
-					edit(
-						(d) =>
-							(d.page.orientation = e.currentTarget.value as Theme['page']['orientation'])
-					)}
+					edit((d) => (d.page.orientation = e.currentTarget.value as Theme['page']['orientation']))}
 			>
 				<option value="portrait">portrait</option>
 				<option value="landscape">landscape</option>
@@ -428,8 +427,7 @@
 							onchange={(e) =>
 								edit(
 									(d) =>
-										(d.cover.blocks[i].field = e.currentTarget
-											.value as (typeof block)['field'])
+										(d.cover.blocks[i].field = e.currentTarget.value as (typeof block)['field'])
 								)}
 						>
 							{#each ['title', 'subtitle', 'author', 'date', 'literal'] as f (f)}
@@ -548,10 +546,7 @@
 			<select
 				value={t[which].alignment}
 				onchange={(e) =>
-					edit(
-						(d) =>
-							(d[which].alignment = e.currentTarget.value as Theme['header']['alignment'])
-					)}
+					edit((d) => (d[which].alignment = e.currentTarget.value as Theme['header']['alignment']))}
 			>
 				<option value="left">left</option>
 				<option value="center">center</option>
@@ -625,9 +620,81 @@
 	<Section title="Header">{@render band('header')}</Section>
 	<Section title="Footer">{@render band('footer')}</Section>
 
+	<Section title="Contents and numbering">
+		<Field
+			label="Number headings"
+			hint="Prefixes each heading with 1, 1.2, 1.2.3 … from its level. The numbers also appear in the contents page and the PDF bookmarks."
+		>
+			<input
+				type="checkbox"
+				checked={t.headings.numbered}
+				onchange={(e) => edit((d) => (d.headings.numbered = e.currentTarget.checked))}
+			/>
+		</Field>
+		<Field
+			label="Table of contents"
+			hint="A contents page built from the headings, with the page each one starts on. Entries are clickable in the PDF."
+		>
+			<input
+				type="checkbox"
+				checked={t.toc.enabled}
+				onchange={(e) => edit((d) => (d.toc.enabled = e.currentTarget.checked))}
+			/>
+		</Field>
+		{#if t.toc.enabled}
+			<Field label="Title">
+				<input
+					type="text"
+					value={t.toc.title}
+					placeholder="Contents"
+					onchange={(e) => edit((d) => (d.toc.title = e.currentTarget.value))}
+				/>
+			</Field>
+			<Field label="Depth" hint="Deepest heading level listed.">
+				<NumberInput
+					value={t.toc.depth}
+					min={1}
+					max={6}
+					step={1}
+					onchange={(v) => edit((d) => (d.toc.depth = Math.round(v)))}
+				/>
+			</Field>
+			<Field label="Indent per level">
+				<NumberInput
+					value={t.toc.indent}
+					min={0}
+					max={60}
+					step={1}
+					suffix="pt"
+					onchange={(v) => edit((d) => (d.toc.indent = v))}
+				/>
+			</Field>
+			<Field label="Entry spacing">
+				<NumberInput
+					value={t.toc.entrySpacing}
+					min={0}
+					max={24}
+					step={0.5}
+					suffix="pt"
+					onchange={(v) => edit((d) => (d.toc.entrySpacing = v))}
+				/>
+			</Field>
+			<Field label="Page break after">
+				<input
+					type="checkbox"
+					checked={t.toc.pageBreakAfter}
+					onchange={(e) => edit((d) => (d.toc.pageBreakAfter = e.currentTarget.checked))}
+				/>
+			</Field>
+		{/if}
+	</Section>
+
 	<Section title="Code blocks">
 		<Field label="Background">
-			<ColorInput value={t.code.background} onchange={(c) => c && edit((d) => (d.code.background = c))} />
+			<ColorInput
+				value={t.code.background}
+				onchange={(c) => c && edit((d) => (d.code.background = c))}
+			/>
 		</Field>
 		<Field label="Border colour">
 			<ColorInput
@@ -688,7 +755,10 @@
 
 	<Section title="Tables">
 		<Field label="Header fill">
-			<ColorInput value={t.table.headerFill} onchange={(c) => c && edit((d) => (d.table.headerFill = c))} />
+			<ColorInput
+				value={t.table.headerFill}
+				onchange={(c) => c && edit((d) => (d.table.headerFill = c))}
+			/>
 		</Field>
 		<Field label="Header colour">
 			<ColorInput
@@ -858,8 +928,8 @@
 
 	<Section title="Obsidian Markdown">
 		<p class="hint">
-			Each switch controls parsing, not just styling: turn one off and that syntax stays in the
-			PDF as literal text.
+			Each switch controls parsing, not just styling: turn one off and that syntax stays in the PDF
+			as literal text.
 		</p>
 
 		<Field label="Callouts" hint={'> [!note] Title, then the body on the following lines'}>
@@ -906,8 +976,8 @@
 			</Field>
 			<p class="hint">
 				Accent, panel and an optional icon per type. Aliases such as <code>tldr</code> or
-				<code>caution</code> follow their canonical type. Icons are drawn from the document
-				font — the bundled families carry few symbols, so <code>✓</code> is a safe one.
+				<code>caution</code> follow their canonical type. Icons are drawn from the document font —
+				the bundled families carry few symbols, so <code>✓</code> is a safe one.
 			</p>
 			<!-- Not <Field>: three controls will not fit in its narrow control
 			     column, so each type gets a full-width row of its own. -->
@@ -970,8 +1040,7 @@
 				<input
 					type="checkbox"
 					checked={t.obsidian.wikilinks.underline}
-					onchange={(e) =>
-						edit((d) => (d.obsidian.wikilinks.underline = e.currentTarget.checked))}
+					onchange={(e) => edit((d) => (d.obsidian.wikilinks.underline = e.currentTarget.checked))}
 				/>
 			</Field>
 			<Field label="Italic">
@@ -1205,9 +1274,7 @@
 			<select
 				value={t.image.alignment}
 				onchange={(e) =>
-					edit(
-						(d) => (d.image.alignment = e.currentTarget.value as Theme['image']['alignment'])
-					)}
+					edit((d) => (d.image.alignment = e.currentTarget.value as Theme['image']['alignment']))}
 			>
 				<option value="left">left</option>
 				<option value="center">center</option>

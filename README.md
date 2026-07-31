@@ -12,6 +12,10 @@ work is saved in the browser, so closing the tab does not lose it.
 
 - **Live preview** of the real PDF, side by side with the editor. The preview and
   the download are the same file — what you see is exactly what you get.
+- **Built for long documents.** Every heading becomes a PDF bookmark, so readers
+  get a navigable sidebar. Optional contents page with real page numbers,
+  optional `1.2.3` heading numbering, and `[text](#heading)` links that jump
+  within the PDF.
 - **Deep theming.** Page size and margins, three font slots, per-element
   typography, colours and spacing, background colour or image, watermark, cover
   page, running header and footer, and page-break rules.
@@ -24,6 +28,8 @@ work is saved in the browser, so closing the tab does not lose it.
   network at all.
 - Front matter, tables, task lists, syntax-highlighted code fences, pasted
   images, mid-sentence images, and manual page breaks.
+- **Open and save Markdown files.** Drop a `.md` anywhere on the page, or use
+  Open; Save .md hands the source back.
 - **Obsidian Flavored Markdown** — callouts, wikilinks, embeds, highlights,
   footnotes, comments and block identifiers, each themeable and each
   individually switchable off.
@@ -57,22 +63,53 @@ tracks where each block actually landed in the PDF, so it stays honest across
 page breaks and long code blocks. Toggle it off if you would rather scroll each
 pane independently.
 
+**Long documents.** Headings always become PDF bookmarks — open the outline
+sidebar in any reader and the whole document is a tree. Two more switches live
+under **Contents and numbering** in the theme panel:
+
+| Setting           | What it does                                                                                                                                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Number headings   | `1`, `1.2`, `1.2.3` in front of each heading, from its level. The same numbers appear in the contents page and the bookmarks                                                                                     |
+| Table of contents | A contents page built from the headings, listing the page each one starts on. Depth, indent, spacing and the page break after it are all themeable, and the two `Contents …` entries under Elements set its type |
+
+A document that starts at `##` numbers from 1 rather than `0.1`, and its
+bookmarks nest from the levels it actually uses.
+
+`[text](#some-heading)` jumps to that heading inside the PDF. Anchors resolve
+both the GitHub way (lowercased, punctuation dropped, spaces hyphenated,
+repeats suffixed `-1`) and the Obsidian way (the heading text itself, ignoring
+case and spacing), so `[x](#my-heading)` and `[[#My Heading]]` both land. An
+anchor no heading matches renders as plain styled text rather than a dead
+external link.
+
+Obsidian's own forms work too: `[[#Heading]]` and `[[#^block-id]]` are real
+jumps, since they name somewhere in _this_ document. `[[Other#Heading]]` names
+a note that is not in the PDF, so it stays inert — pointing it at a same-named
+heading here would send the reader somewhere the document never said.
+
+**Opening and saving.** Drop a `.md` file anywhere on the page, or press
+**Open**. It replaces the current document — you get one confirmation, because
+there is no undo across a whole replacement — and the file name becomes the
+document title unless front matter or the metadata panel says otherwise.
+**Save .md** hands back the source; **Download PDF** hands back the PDF.
+
 **Images.** Paste an image into the editor and it is embedded directly in the
 document. This is the way to include local images — a page with no server cannot
 read files off your disk by relative path. Pasted images are capped at 2 MB.
 
 **Obsidian syntax.** Notes written in Obsidian print as they read:
 
-| Syntax | In the PDF |
-|---|---|
-| `> [!warning] Title` | A callout — coloured bar, tinted panel, styled title. Aliases such as `tldr` or `caution` work, and `[!note]-` marks it collapsed |
-| `[[Note]]`, `[[Note\|alias]]`, `[[Note#Heading]]` | Styled text. A standalone PDF has no vault to link into, so it is not a hyperlink |
-| `![[Note]]` | A reference to the target, italic by default, or hidden |
-| `==text==` | Highlighted |
-| `[^1]` plus `[^1]: note` | A superscript marker and a numbered notes section at the end |
-| `#tag`, `#parent/child` | Coloured, optionally on a tinted background. A numeric `#1234` stays literal, so issue references survive |
-| `%%text%%` | Left out, inline or across several lines. Optionally printed, for review copies |
-| `^my-id` | Stripped |
+| Syntax                                            | In the PDF                                                                                                                        |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `> [!warning] Title`                              | A callout — coloured bar, tinted panel, styled title. Aliases such as `tldr` or `caution` work, and `[!note]-` marks it collapsed |
+| `[[Note]]`, `[[Note\|alias]]`, `[[Note#Heading]]` | Styled text. A standalone PDF has no vault to link into, so it is not a hyperlink                                                 |
+| `[[#Heading]]`, `[[#^block-id]]`                  | A real jump to that place in this PDF — no vault needed. Case and spacing do not matter, and an alias still sets the text         |
+| `![[Note]]`                                       | A reference to the target, italic by default, or hidden                                                                           |
+| `==text==`                                        | Highlighted                                                                                                                       |
+| `[^1]` plus `[^1]: note`                          | A superscript marker and a numbered notes section at the end                                                                      |
+| `#tag`, `#parent/child`                           | Coloured, optionally on a tinted background. A numeric `#1234` stays literal, so issue references survive                         |
+| `%%text%%`                                        | Left out, inline or across several lines. Optionally printed, for review copies                                                   |
+| `^my-id`                                          | Stripped, but remembered — `[[#^my-id]]` jumps to the block it marked                                                             |
 
 Each of these is a switch in the theme panel. Turn one off and that syntax stays
 in the PDF as literal text — useful if your document means something else by
@@ -113,11 +150,11 @@ chrome — the PDF looks however its theme says.
 
 ### Keyboard
 
-| Shortcut | Action |
-|---|---|
-| `Ctrl/Cmd+S` | Download the PDF |
-| `Ctrl/Cmd+Shift+B` | Toggle the theme panel |
-| `Ctrl/Cmd+Shift+E` | Collapse the editor |
+| Shortcut            | Action                                       |
+| ------------------- | -------------------------------------------- |
+| `Ctrl/Cmd+S`        | Download the PDF                             |
+| `Ctrl/Cmd+Shift+B`  | Toggle the theme panel                       |
+| `Ctrl/Cmd+Shift+E`  | Collapse the editor                          |
 | `Tab` / `Shift+Tab` | Indent / outdent, without leaving the editor |
 
 On narrow windows the theme panel becomes an overlay, and below 720px the editor
@@ -143,8 +180,6 @@ and memory-hungry, and the app will warn you. The download is unaffected.
 
 ## Contributing
 
-- [DESIGN.md](DESIGN.md) — the implementation specification. Code comments cite
-  it by section.
 - [CLAUDE.md](CLAUDE.md) — architecture, commands, and the invariants to know
   before changing anything.
 - [docs/verification.md](docs/verification.md) — the experiments behind the

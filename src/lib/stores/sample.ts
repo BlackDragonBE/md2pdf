@@ -18,6 +18,11 @@ Open the theme panel and every field below changes the output:
 - Per-element size, colour, spacing and page-break behaviour
 - Background colour or image, watermark, cover page
 - Running header and footer, with \`{{page}} / {{pages}}\` templates
+- A contents page and numbered headings, both off by default
+
+Headings always become PDF bookmarks — open the sidebar in any PDF reader.
+Links between them work too: [jump to page two](#page-two), and Obsidian's own
+[[#Page two]] does the same.
 
 ### Text
 

@@ -102,7 +102,9 @@ describe('artworkKey', () => {
 		// The real set, so a rebuild that changed the naming fails here.
 		const set = JSON.parse(
 			Buffer.from(
-				gunzipSync(readFileSync(join(import.meta.dirname, '..', '..', 'static', 'emoji', 'twemoji.bin')))
+				gunzipSync(
+					readFileSync(join(import.meta.dirname, '..', '..', 'static', 'emoji', 'twemoji.bin'))
+				)
 			).toString('utf8')
 		) as Record<string, string>;
 

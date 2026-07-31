@@ -83,10 +83,7 @@ async function dropStaleVersions(id: string, version: string): Promise<void> {
 	}
 }
 
-export async function loadBuiltinFaces(
-	id: string,
-	warnings: string[]
-): Promise<FaceBuffers> {
+export async function loadBuiltinFaces(id: string, warnings: string[]): Promise<FaceBuffers> {
 	const manifest = await loadManifest();
 	const entry = manifest[id];
 	if (!entry) throw new Error(`Unknown built-in font "${id}".`);

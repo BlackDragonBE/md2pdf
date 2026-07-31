@@ -20,7 +20,8 @@ function db(): Promise<IDBPDatabase> {
 	if (!dbPromise) {
 		dbPromise = openDB(DB_NAME, DB_VERSION, {
 			upgrade(database) {
-				if (!database.objectStoreNames.contains(STORE_FONTS)) database.createObjectStore(STORE_FONTS);
+				if (!database.objectStoreNames.contains(STORE_FONTS))
+					database.createObjectStore(STORE_FONTS);
 				if (!database.objectStoreNames.contains(STORE_UPLOADS))
 					database.createObjectStore(STORE_UPLOADS);
 				if (!database.objectStoreNames.contains(STORE_ASSETS))

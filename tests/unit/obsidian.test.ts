@@ -14,7 +14,9 @@ function ctx(theme: Theme = cloneDefaultTheme()): InlineContext {
 		warnings: new Set<string>(),
 		images: new Map(),
 		emojiArt: new Map(),
-		contentWidth: 483
+		contentWidth: 483,
+		destinations: new Map(),
+		blockAnchors: new Map()
 	};
 }
 
@@ -158,9 +160,7 @@ describe('block identifiers', () => {
 	});
 
 	it('stays literal when disabled', () => {
-		expect(text('A paragraph. ^my-id', undefined, { blockIds: false })).toBe(
-			'A paragraph. ^my-id'
-		);
+		expect(text('A paragraph. ^my-id', undefined, { blockIds: false })).toBe('A paragraph. ^my-id');
 	});
 });
 
@@ -180,9 +180,7 @@ describe('callouts', () => {
 		const types = tokens('> [!note] A **bold** title\n> body').map((t) => t.type);
 		expect(types).toContain('callout_title_open');
 		expect(types).toContain('callout_title_close');
-		const title = tokens('> [!note] A **bold** title\n> body').find(
-			(t) => t.type === 'inline'
-		);
+		const title = tokens('> [!note] A **bold** title\n> body').find((t) => t.type === 'inline');
 		expect(title?.children?.map((c) => c.type)).toContain('strong_open');
 	});
 
@@ -274,7 +272,9 @@ describe('tags', () => {
 
 	it('keeps a CSS colour looking like a tag, as Obsidian does', () => {
 		// #fff really is a tag by Obsidian's rules; documenting the consequence.
-		expect(runs('use #fff here').some((r) => r.text === '#fff' && r.color === '#08787f')).toBe(true);
+		expect(runs('use #fff here').some((r) => r.text === '#fff' && r.color === '#08787f')).toBe(
+			true
+		);
 	});
 
 	it('stays literal when disabled', () => {

@@ -5,7 +5,10 @@
 	"fonts": {
 		"body": { "source": { "kind": "builtin", "id": "work-sans" }, "fallback": "inter" },
 		"heading": { "source": { "kind": "builtin", "id": "work-sans" }, "fallback": "inter" },
-		"mono": { "source": { "kind": "builtin", "id": "jetbrains-mono" }, "fallback": "jetbrains-mono" }
+		"mono": {
+			"source": { "kind": "builtin", "id": "jetbrains-mono" },
+			"fallback": "jetbrains-mono"
+		}
 	},
 	"background": { "color": "#f4f5f7" },
 	"watermark": {

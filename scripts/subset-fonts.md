@@ -64,7 +64,7 @@ merged output stays correctly licensed; the licence file is committed beside
 each family and listed on `/licenses`.
 
 Grafted glyphs are geometric shapes, so the visual mismatch against the host
-family is negligible. If a future family needs a grafted *letterform*, do not
+family is negligible. If a future family needs a grafted _letterform_, do not
 use this mechanism.
 
 ## Verifying after a rebuild
@@ -142,7 +142,7 @@ It differs from the twelve in three ways, all deliberate:
   what make a ZWJ family, a skin-toned hand, a flag pair and a keycap each come
   out as one glyph. Drop them and `👨‍👩‍👧` renders as three separate people.
 
-Upstream is the *monochrome* Noto Emoji. pdfkit embeds `glyf` outlines and
+Upstream is the _monochrome_ Noto Emoji. pdfkit embeds `glyf` outlines and
 cannot render the colour (CBDT) build, so emoji take the fill colour of the text
 around them.
 

@@ -72,7 +72,9 @@ describe('markdown parser configuration', () => {
 	});
 
 	it('linkifies bare URLs', () => {
-		const inline = parse('see https://example.com', parseOpts()).tokens.find((t) => t.type === 'inline');
+		const inline = parse('see https://example.com', parseOpts()).tokens.find(
+			(t) => t.type === 'inline'
+		);
 		expect(inline?.children?.some((c) => c.type === 'link_open')).toBe(true);
 	});
 

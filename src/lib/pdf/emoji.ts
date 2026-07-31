@@ -86,7 +86,7 @@ export function clusters(text: string): Cluster[] {
 	const cps = [...text].map((c) => c.codePointAt(0) as number);
 	const out: Cluster[] = [];
 
-	for (let i = 0; i < cps.length; ) {
+	for (let i = 0; i < cps.length;) {
 		const start = i;
 		let sawVs16 = false;
 		let sawVs15 = false;

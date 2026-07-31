@@ -12,7 +12,11 @@
 <div class="meta">
 	<p class="hint">Front matter in the document overrides these.</p>
 	<Field label="Title">
-		<input type="text" value={meta.title ?? ''} onchange={(e) => onchange({ title: e.currentTarget.value })} />
+		<input
+			type="text"
+			value={meta.title ?? ''}
+			onchange={(e) => onchange({ title: e.currentTarget.value })}
+		/>
 	</Field>
 	<Field label="Subtitle">
 		<input
@@ -22,10 +26,18 @@
 		/>
 	</Field>
 	<Field label="Author">
-		<input type="text" value={meta.author ?? ''} onchange={(e) => onchange({ author: e.currentTarget.value })} />
+		<input
+			type="text"
+			value={meta.author ?? ''}
+			onchange={(e) => onchange({ author: e.currentTarget.value })}
+		/>
 	</Field>
 	<Field label="Date" hint="Empty means today, at render time">
-		<input type="date" value={meta.date ?? ''} onchange={(e) => onchange({ date: e.currentTarget.value })} />
+		<input
+			type="date"
+			value={meta.date ?? ''}
+			onchange={(e) => onchange({ date: e.currentTarget.value })}
+		/>
 	</Field>
 </div>
 

@@ -2,6 +2,7 @@ import pdfMakeModule from 'pdfmake/build/pdfmake';
 import { buildDocDefinition, type Anchor } from './buildDocDefinition';
 import { buildLayouts } from './layouts';
 import type { CustomTableLayout, DocDefinition, FontDictionary, Vfs } from './pdfmake-types';
+import { applyOutline, type OutlineTarget } from './outline';
 import type { RenderRequest } from '../workers/protocol';
 import type { FontMap } from './styles';
 
@@ -11,7 +12,7 @@ interface PdfMakeDocument {
 	getBuffer(cb: (buffer: Uint8Array) => void): void;
 }
 
-interface PdfKitDoc {
+interface PdfKitDoc extends OutlineTarget {
 	on(event: string, cb: () => void): void;
 	read(size: number): Uint8Array | null;
 	end(): void;
@@ -42,7 +43,7 @@ export interface GenerateResult {
  * so consecutive renders cannot bleed fonts into one another (§7.5).
  */
 export function generate(req: RenderRequest): Promise<GenerateResult> {
-	const { docDefinition, warnings, anchors } = buildDocDefinition({
+	const { docDefinition, warnings, headings, anchors } = buildDocDefinition({
 		tokens: req.tokens,
 		theme: req.theme,
 		meta: req.meta,
@@ -59,7 +60,10 @@ export function generate(req: RenderRequest): Promise<GenerateResult> {
 			// ponytail: _createDoc/_flushDoc are pdfmake internals, used because the
 			// public getBuffer() discards the page list we need for the page counter.
 			// If they ever move, fall back to getBuffer() and take the count from pdf.js.
-			doc._createDoc({}, (kit) => {
+			// bufferPages keeps every page reachable after layout, which is what
+			// lets the outline point at the page a heading actually landed on.
+			doc._createDoc({ bufferPages: true }, (kit) => {
+				applyOutline(kit, headings, anchors);
 				doc._flushDoc(kit, (buffer, pages) => {
 					const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
 					const copy = new ArrayBuffer(bytes.byteLength);

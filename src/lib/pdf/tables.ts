@@ -10,11 +10,7 @@ export interface TableCellSpec {
  * Markdown tables have no width syntax, so every column gets an equal share of
  * the content width. `auto` would let one long cell starve the others.
  */
-export function buildTable(
-	header: TableCellSpec[],
-	rows: TableCellSpec[][],
-	t: Theme
-): TableNode {
+export function buildTable(header: TableCellSpec[], rows: TableCellSpec[][], t: Theme): TableNode {
 	const columns = Math.max(header.length, ...rows.map((r) => r.length), 1);
 	const widths: TableWidth[] = Array.from({ length: columns }, () => '*');
 

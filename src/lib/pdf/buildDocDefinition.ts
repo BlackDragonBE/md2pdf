@@ -11,7 +11,9 @@ import {
 	type DocDefinition,
 	type PageBreakNodeInfo
 } from './pdfmake-types';
+import { scanHeadings, type HeadingInfo } from './headings';
 import { buildDefaultStyle, buildStyles, type FontMap } from './styles';
+import { tocNode } from './toc';
 import { pageBackground, watermarkSpec } from './watermark';
 
 export interface BuildInput {
@@ -38,6 +40,8 @@ export interface Anchor {
 export interface BuildResult {
 	docDefinition: DocDefinition;
 	warnings: string[];
+	/** Every heading, in document order — the source of the PDF bookmark tree. */
+	headings: HeadingInfo[];
 	/**
 	 * Filled during layout, not at build time — read it only after the document
 	 * has been generated. pdfmake calls `pageBreakBefore` for every node and
@@ -60,7 +64,12 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 	const pageSize = pageDimensions(t.page.size, t.page.orientation);
 	const contentWidth = pageSize.width - t.page.margins[0] - t.page.margins[2];
 
-	const ctx = makeContext(t, fonts, images, input.emojiArt, contentWidth, warnings);
+	// Scanned up front, not as the renderer walks: an anchor may point at a
+	// heading further down the document, and the numbering has to be settled
+	// before the first heading is rendered.
+	const headings = scanHeadings(tokens, t.headings.numbered);
+
+	const ctx = makeContext(t, fonts, images, input.emojiArt, contentWidth, warnings, headings);
 	const body = renderTokens(tokens, ctx);
 
 	if (t.background.image?.fit === 'tile') {
@@ -76,7 +85,7 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 		pageSize: t.page.size,
 		pageOrientation: t.page.orientation,
 		pageMargins: [...t.page.margins],
-		content: [...coverSpacer(t), ...body] as Content[],
+		content: [...coverSpacer(t), ...tocNode(t), ...body] as Content[],
 		styles: buildStyles(t, fonts),
 		defaultStyle: buildDefaultStyle(t, fonts),
 		info: {
@@ -93,7 +102,10 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 			headerFor(currentPage, pageCount, ps, t, meta, fonts, warnings),
 		footer: (currentPage, pageCount, ps) =>
 			footerFor(currentPage, pageCount, ps, t, meta, fonts, warnings),
-		pageBreakBefore: (currentNode: PageBreakNodeInfo, followingNodesOnPage: PageBreakNodeInfo[]) => {
+		pageBreakBefore: (
+			currentNode: PageBreakNodeInfo,
+			followingNodesOnPage: PageBreakNodeInfo[]
+		) => {
 			// Harvest the position while we are here; pdfmake offers no other hook
 			// that reports where a node actually landed. Layout runs twice, so a
 			// later pass simply overwrites with the final numbers.
@@ -116,5 +128,5 @@ export function buildDocDefinition(input: BuildInput): BuildResult {
 		compress: true
 	};
 
-	return { docDefinition, warnings: [...warnings], anchors };
+	return { docDefinition, warnings: [...warnings], headings: headings.list, anchors };
 }

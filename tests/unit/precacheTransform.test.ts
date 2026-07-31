@@ -30,8 +30,11 @@ describe('precache manifest transform', () => {
 	 * navigation with a different site's page.
 	 */
 	it('never emits a root-absolute URL', () => {
-		const out = urls([...RAW, { url: '/', revision: 'x', size: 1 },
-			{ url: '/nested/thing.js', revision: null, size: 1 }]);
+		const out = urls([
+			...RAW,
+			{ url: '/', revision: 'x', size: 1 },
+			{ url: '/nested/thing.js', revision: null, size: 1 }
+		]);
 		expect(out.filter((url) => url.startsWith('/'))).toEqual([]);
 	});
 

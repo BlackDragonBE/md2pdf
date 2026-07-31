@@ -79,11 +79,20 @@ const TAG_NUMERIC = /^\p{N}+$/u;
 /** `#` must not sit inside a word: `example.com#frag` and `a#b` are not tags. */
 const TAG_WORD_CHAR = /[\p{L}\p{N}_/-]/u;
 
-/** `Note#Heading` / `Note#^blockid` → target plus the section, `^` stripped. */
-function splitSection(raw: string): [string, string] {
+/**
+ * `Note#Heading` / `Note#^blockid` → target, section, and whether the section
+ * was a block identifier.
+ *
+ * The `^` has to be reported rather than merely stripped: `[[#^intro]]` and
+ * `[[#intro]]` name different things, and with no target they are both links
+ * into *this* document, which the renderer can actually resolve.
+ */
+function splitSection(raw: string): [string, string, boolean] {
 	const hash = raw.indexOf('#');
-	if (hash < 0) return [raw.trim(), ''];
-	return [raw.slice(0, hash).trim(), raw.slice(hash + 1).replace(/^\^/, '').trim()];
+	if (hash < 0) return [raw.trim(), '', false];
+	const rest = raw.slice(hash + 1).trim();
+	const block = rest.startsWith('^');
+	return [raw.slice(0, hash).trim(), (block ? rest.slice(1) : rest).trim(), block];
 }
 
 function wikilinkRule(state: StateInline, silent: boolean): boolean {
@@ -97,11 +106,12 @@ function wikilinkRule(state: StateInline, silent: boolean): boolean {
 	if (!m) return false;
 
 	if (!silent) {
-		const [target, section] = splitSection(m[1]);
+		const [target, section, block] = splitSection(m[1]);
 		const token = state.push('wikilink', '', 0);
 		token.content = m[0];
 		token.attrSet('target', target);
 		token.attrSet('section', section);
+		if (block) token.attrSet('block', '1');
 		token.attrSet('alias', (m[2] ?? '').trim());
 		if (embed) token.attrSet('embed', '1');
 	}

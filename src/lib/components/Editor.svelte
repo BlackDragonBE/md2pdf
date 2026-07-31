@@ -130,8 +130,7 @@
 	{value}
 	oninput={(e) => oninput(e.currentTarget.value)}
 	{onkeydown}
-	{onpaste}
-></textarea>
+	{onpaste}></textarea>
 
 <style>
 	.editor {

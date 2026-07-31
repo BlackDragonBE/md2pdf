@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const THEME_VERSION = 2;
+export const THEME_VERSION = 3;
 
 const Hex = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
 const Margin = z.tuple([z.number(), z.number(), z.number(), z.number()]); // [l, t, r, b] in pt
@@ -130,6 +130,28 @@ export const ThemeSchema = z.object({
 		offset: z.number().default(28),
 		showOnFirstContentPage: z.boolean().default(true),
 		rule: Rule
+	}),
+
+	headings: z.object({
+		/** Prefix headings with `1`, `1.2`, `1.2.3` … derived from their level. */
+		numbered: z.boolean().default(false)
+	}),
+
+	/**
+	 * Table of contents. Entries come from the headings themselves, so the
+	 * numbering above and the PDF bookmarks always agree with it.
+	 */
+	toc: z.object({
+		enabled: z.boolean().default(false),
+		/** Heading above the list. Empty for none. */
+		title: z.string().max(80).default('Contents'),
+		/** Deepest heading level listed. */
+		depth: z.number().int().min(1).max(6).default(3),
+		/** Left indent per heading level, in pt. */
+		indent: z.number().min(0).max(60).default(14),
+		/** Space above each entry, in pt. */
+		entrySpacing: z.number().min(0).max(24).default(3),
+		pageBreakAfter: z.boolean().default(true)
 	}),
 
 	pagebreak: z.object({
@@ -295,7 +317,9 @@ export const ThemeSchema = z.object({
 		tableCell: ElementStyle,
 		tableHeader: ElementStyle,
 		calloutTitle: ElementStyle,
-		footnote: ElementStyle
+		footnote: ElementStyle,
+		tocTitle: ElementStyle,
+		tocEntry: ElementStyle
 	}),
 
 	locale: z.string().default('en-US')

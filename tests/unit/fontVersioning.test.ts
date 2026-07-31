@@ -33,9 +33,7 @@ describe('bundled font versioning', () => {
 			for (const path of [...new Set(Object.values(manifest[id].files))]) {
 				digest.update(readFileSync(join(FONT_DIR, path)));
 			}
-			expect(manifest[id].version, `${id} version is stale`).toBe(
-				digest.digest('hex').slice(0, 8)
-			);
+			expect(manifest[id].version, `${id} version is stale`).toBe(digest.digest('hex').slice(0, 8));
 		}
 	});
 

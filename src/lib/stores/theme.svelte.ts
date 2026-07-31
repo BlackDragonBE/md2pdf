@@ -64,10 +64,10 @@ class ThemeStore {
 
 	remember(theme: Theme): void {
 		const json = JSON.stringify(theme);
-		const next = [
-			{ name: theme.name, json },
-			...this.recent.filter((r) => r.json !== json)
-		].slice(0, RECENT_LIMIT);
+		const next = [{ name: theme.name, json }, ...this.recent.filter((r) => r.json !== json)].slice(
+			0,
+			RECENT_LIMIT
+		);
 		this.recent = next;
 		writeJson(KEY_RECENT, next);
 	}

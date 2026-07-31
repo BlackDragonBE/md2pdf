@@ -12,7 +12,10 @@ type Migration = (input: Record<string, unknown>) => Record<string, unknown>;
 const MIGRATIONS: Record<number, Migration> = {
 	// 2 added `obsidian` and the calloutTitle/footnote element styles, both
 	// purely additive.
-	1: (t) => ({ ...t, version: 2 })
+	1: (t) => ({ ...t, version: 2 }),
+	// 3 added `headings`, `toc` and the tocTitle/tocEntry element styles, again
+	// purely additive — an older theme simply renders without a contents page.
+	2: (t) => ({ ...t, version: 3 })
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
